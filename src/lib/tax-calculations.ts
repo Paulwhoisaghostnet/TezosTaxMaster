@@ -97,7 +97,11 @@ export interface TaxCalculationResult {
     totalCostBasis: number;
     totalGain: number;
     taxableGain?: number; // For CRA: 50% inclusion rate on capital gains only
-    totalIncome?: number; // Ordinary/business income (staking rewards + creator sales)
+    totalIncome?: number; // Total income from all sources
+    confirmedIncome?: number; // All income is confirmed (no review needed)
+    stakingIncome?: number; // Baking/staking rewards
+    creatorIncome?: number; // Sales of self-created tokens
+    receivedIncome?: number; // XTZ received from external addresses
     currency: string;
   };
   incomeEvents: Array<{
@@ -166,13 +170,17 @@ function getDisposalNote(e: TxEvent): string {
     case 'swap':
       return `Swap: ${e.classificationNote || 'DEX trade'}`;
     case 'likely_gift':
-      return 'Likely gift - verify with records. Gifts are taxable disposals at FMV.';
+      return 'Gift of XTZ - taxable disposal at FMV.';
+    case 'token_gift_out':
+      return 'Gift of token/NFT - taxable disposal at FMV.';
     case 'nft_purchase':
       return 'NFT purchase';
     case 'nft_sale':
       return 'NFT sale - capital gain/loss (acquired token sold)';
     case 'creator_sale':
       return 'Creator sale - ordinary income, NOT capital gains (self-created token sold)';
+    case 'token_received':
+      return 'Token/NFT received - cost basis = FMV at receipt (or 0 if unknown)';
     case 'dex_interaction':
       return `DEX interaction: ${e.classificationNote || 'Unknown'}`;
     default:
@@ -195,6 +203,19 @@ export function calculateIRS(
   const disposals: IRSDisposal[] = [];
   const incomeEvents: TaxCalculationResult['incomeEvents'] = [];
   const xtzLots: FifoLot[] = [];
+  
+  // Token/NFT lot tracking: Map<assetKey, FifoLot[]>
+  const tokenLots: Map<string, Array<{ acquiredTs: string; qty: number; basisPerUsd: number }>> = new Map();
+  
+  // Helper to get token value from related XTZ in same operation
+  const getTokenValueFromRelatedXtz = (event: TxEvent, allEvents: TxEvent[]): number => {
+    const relatedEvents = allEvents.filter(e => e.opHash === event.opHash && e.id !== event.id);
+    const xtzEvent = relatedEvents.find(e => e.asset === 'XTZ');
+    if (xtzEvent) {
+      return xtzEvent.quantity * (xtzEvent.quoteUsd || 0);
+    }
+    return 0; // Unknown value
+  };
   
   let totalProceeds = 0;
   let totalBasis = 0;
@@ -260,8 +281,29 @@ export function calculateIRS(
           fmv: e.quantity * fmvUsd,
           note: e.classificationNote || 'IRS: Self-employment income from sale of self-created token - report on Schedule C. Subject to self-employment tax.',
         });
+      } else if (e.classification === 'received_income' && e.direction === 'in') {
+        // Received XTZ from external address (not owned wallet, not CEX, not baker)
+        // This is taxable income at FMV when received
+        irsCategory = 'ordinary_income';
+        taxable = 'yes';
+        
+        // Create lot with FMV basis
+        xtzLots.push({
+          acquiredTs: e.timestamp,
+          qty: e.quantity,
+          basisPer: fmvUsd,
+        });
+        
+        // Add to income events
+        incomeEvents.push({
+          timestamp: e.timestamp,
+          type: 'Received Income (Ordinary Income)',
+          quantity: e.quantity,
+          fmv: e.quantity * fmvUsd,
+          note: e.classificationNote || 'IRS: XTZ received from external address - taxable as ordinary income at FMV when received.',
+        });
       } else if (e.direction === 'in' && e.quantity > 0) {
-        // Other acquisitions
+        // Other acquisitions (swaps, etc.)
         irsCategory = e.classification === 'swap' 
           ? 'swap_acquisition' 
           : 'acquisition_or_income_review';
@@ -327,17 +369,111 @@ export function calculateIRS(
         });
       }
     } else {
-      // Token/NFT
-      if (e.direction === 'out') {
-        irsCategory = e.classification === 'nft_sale' 
-          ? 'nft_sale' 
-          : 'token_disposal_review';
-        taxable = e.classification === 'self_transfer' ? 'no' : 'likely';
-      } else {
-        irsCategory = e.classification === 'nft_purchase'
-          ? 'nft_purchase'
-          : 'token_acquisition_or_income_review';
-        taxable = 'maybe';
+      // Token/NFT handling with cost basis tracking
+      const assetKey = e.asset;
+      
+      if (e.classification === 'self_transfer') {
+        // Self-transfers of tokens don't trigger gains
+        irsCategory = 'self_transfer';
+        taxable = 'no';
+      } else if (e.direction === 'in') {
+        // Token/NFT acquisition - create lot with cost basis
+        let costBasisUsd = 0;
+        
+        if (e.classification === 'nft_purchase' || e.classification === 'swap') {
+          // Cost basis = value of XTZ spent in same operation
+          costBasisUsd = getTokenValueFromRelatedXtz(e, events);
+          irsCategory = 'nft_purchase';
+          taxable = 'no'; // Acquisition isn't taxable, disposal of XTZ is handled separately
+        } else if (e.classification === 'token_received') {
+          // Received token/NFT as gift - cost basis = FMV (use 0 if unknown)
+          // Note: For gifts, recipient's basis is typically donor's basis, but if unknown, use 0
+          costBasisUsd = getTokenValueFromRelatedXtz(e, events); // Will be 0 for pure gifts
+          irsCategory = 'token_received';
+          taxable = 'no'; // Receiving a gift isn't income for recipient (donor pays gift tax if applicable)
+        } else if (e.isMint) {
+          // Minted token - cost basis = 0 (or actual costs if tracked)
+          costBasisUsd = 0;
+          irsCategory = 'token_mint';
+          taxable = 'no';
+        } else {
+          irsCategory = 'token_acquisition';
+          taxable = 'no';
+        }
+        
+        // Create lot for the token
+        if (!tokenLots.has(assetKey)) {
+          tokenLots.set(assetKey, []);
+        }
+        tokenLots.get(assetKey)!.push({
+          acquiredTs: e.timestamp,
+          qty: e.quantity,
+          basisPerUsd: e.quantity > 0 ? costBasisUsd / e.quantity : 0,
+        });
+      } else if (e.direction === 'out') {
+        // Token/NFT disposal - calculate capital gain
+        if (e.classification === 'creator_sale') {
+          // Creator sales are ordinary income, not capital gains
+          irsCategory = 'creator_sale';
+          taxable = 'yes';
+          // Income already tracked when XTZ is received
+        } else {
+          // Regular sale or gift - capital gains event
+          const proceeds = getTokenValueFromRelatedXtz(e, events);
+          let basis = 0;
+          let qtyToDispose = e.quantity;
+          const lots = tokenLots.get(assetKey) || [];
+          
+          // FIFO matching for token
+          while (qtyToDispose > 1e-12 && lots.length > 0) {
+            const lot = lots[0];
+            const take = Math.min(qtyToDispose, lot.qty);
+            basis += take * lot.basisPerUsd;
+            lot.qty -= take;
+            qtyToDispose -= take;
+            if (lot.qty <= 1e-12) {
+              lots.shift();
+            }
+          }
+          
+          const gain = proceeds - basis;
+          
+          if (e.classification === 'nft_sale') {
+            irsCategory = 'nft_sale';
+            taxable = 'yes';
+          } else if (e.classification === 'token_gift_out') {
+            irsCategory = 'token_gift';
+            taxable = 'yes'; // Gifts are disposals at FMV
+          } else {
+            irsCategory = 'token_disposal';
+            taxable = 'yes';
+          }
+          
+          // Only add to totals if there's a known proceeds value
+          if (proceeds > 0 || basis > 0) {
+            totalProceeds += proceeds;
+            totalBasis += basis;
+            totalGain += gain;
+            
+            // Record as disposal
+            disposals.push({
+              timestamp: e.timestamp,
+              asset: e.asset,
+              qtyDisposed: e.quantity,
+              fmvUsdPerXtz: 0, // Not XTZ
+              proceedsUsd: round(proceeds, 8),
+              basisUsd: round(basis, 8),
+              gainUsd: round(gain, 8),
+              feeXtz: e.feeXtz,
+              opHash: e.opHash,
+              lotBreakdown: [],
+              classification: e.classification,
+              note: e.classification === 'token_gift_out' 
+                ? 'Token/NFT gift - taxable disposal at FMV'
+                : 'Token/NFT sale - capital gain/loss',
+            });
+          }
+        }
       }
     }
     
@@ -363,7 +499,16 @@ export function calculateIRS(
     onProgress?.(((i + 1) / events.length) * 100, `Processing event ${i + 1}/${events.length}`);
   }
   
-  // Calculate total ordinary income (staking + creator sales)
+  // Calculate income totals by category
+  const stakingIncome = incomeEvents
+    .filter(e => e.type.includes('Staking'))
+    .reduce((sum, e) => sum + e.fmv, 0);
+  const creatorIncome = incomeEvents
+    .filter(e => e.type.includes('Creator'))
+    .reduce((sum, e) => sum + e.fmv, 0);
+  const receivedIncome = incomeEvents
+    .filter(e => e.type.includes('Received'))
+    .reduce((sum, e) => sum + e.fmv, 0);
   const totalIncome = incomeEvents.reduce((sum, e) => sum + e.fmv, 0);
   
   return {
@@ -375,7 +520,11 @@ export function calculateIRS(
       totalProceeds: round(totalProceeds, 2),
       totalCostBasis: round(totalBasis, 2),
       totalGain: round(totalGain, 2),
-      totalIncome: round(totalIncome, 2), // Ordinary income (Schedule 1/C)
+      totalIncome: round(totalIncome, 2),
+      confirmedIncome: round(totalIncome, 2), // All income is now confirmed
+      stakingIncome: round(stakingIncome, 2),
+      creatorIncome: round(creatorIncome, 2),
+      receivedIncome: round(receivedIncome, 2),
       currency: 'USD',
     },
   };
@@ -441,6 +590,17 @@ export function calculateHMRC(
           quantity: e.quantity,
           fmv: e.quantity * fmvGbp,
           note: e.classificationNote || 'HMRC: Trading income from sale of self-created token - report on Self Assessment as self-employment income.',
+        });
+      }
+      
+      // Track received income from external addresses (not owned wallet, not CEX, not baker)
+      if (e.classification === 'received_income') {
+        incomeEvents.push({
+          timestamp: e.timestamp,
+          type: 'Received Income (Misc Income)',
+          quantity: e.quantity,
+          fmv: e.quantity * fmvGbp,
+          note: e.classificationNote || 'HMRC: XTZ received from external address - taxable as miscellaneous income at FMV when received.',
         });
       }
       
@@ -628,7 +788,16 @@ export function calculateHMRC(
     };
   });
   
-  // Calculate total income (miscellaneous + trading income)
+  // Calculate income totals by category
+  const stakingIncome = incomeEvents
+    .filter(e => e.type.includes('Staking'))
+    .reduce((sum, e) => sum + e.fmv, 0);
+  const creatorIncome = incomeEvents
+    .filter(e => e.type.includes('Creator'))
+    .reduce((sum, e) => sum + e.fmv, 0);
+  const receivedIncome = incomeEvents
+    .filter(e => e.type.includes('Received'))
+    .reduce((sum, e) => sum + e.fmv, 0);
   const totalIncome = incomeEvents.reduce((sum, e) => sum + e.fmv, 0);
   
   return {
@@ -640,7 +809,11 @@ export function calculateHMRC(
       totalProceeds: round(totalProceeds, 2),
       totalCostBasis: round(totalCost, 2),
       totalGain: round(totalGain, 2),
-      totalIncome: round(totalIncome, 2), // Miscellaneous/trading income (£1k allowance may apply)
+      totalIncome: round(totalIncome, 2),
+      confirmedIncome: round(totalIncome, 2), // All income is now confirmed
+      stakingIncome: round(stakingIncome, 2),
+      creatorIncome: round(creatorIncome, 2),
+      receivedIncome: round(receivedIncome, 2),
       currency: 'GBP',
     },
   };
@@ -711,6 +884,17 @@ export function calculateCRA(
           quantity: e.quantity,
           fmv: cost,
           note: e.classificationNote || 'CRA: Business income from sale of self-created token - 100% taxable (not eligible for 50% capital gains rate)',
+        });
+      }
+      
+      // Track received income from external addresses (not owned wallet, not CEX, not baker)
+      if (e.classification === 'received_income') {
+        incomeEvents.push({
+          timestamp: e.timestamp,
+          type: 'Received Income (Other Income)',
+          quantity: e.quantity,
+          fmv: cost,
+          note: e.classificationNote || 'CRA: XTZ received from external address - taxable as other income at FMV when received.',
         });
       }
       
@@ -817,7 +1001,16 @@ export function calculateCRA(
     };
   });
   
-  // Calculate total business income (100% taxable - NOT eligible for 50% capital gains rate)
+  // Calculate income totals by category
+  const stakingIncome = incomeEvents
+    .filter(e => e.type.includes('Baking'))
+    .reduce((sum, e) => sum + e.fmv, 0);
+  const creatorIncome = incomeEvents
+    .filter(e => e.type.includes('Creator'))
+    .reduce((sum, e) => sum + e.fmv, 0);
+  const receivedIncome = incomeEvents
+    .filter(e => e.type.includes('Received'))
+    .reduce((sum, e) => sum + e.fmv, 0);
   const totalIncome = incomeEvents.reduce((sum, e) => sum + e.fmv, 0);
   
   return {
@@ -830,7 +1023,11 @@ export function calculateCRA(
       totalCostBasis: round(totalCost, 2),
       totalGain: round(totalGain, 2),
       taxableGain: round(totalTaxableGain, 2), // 50% inclusion rate - capital gains ONLY
-      totalIncome: round(totalIncome, 2), // Business income - 100% taxable
+      totalIncome: round(totalIncome, 2),
+      confirmedIncome: round(totalIncome, 2), // All income is now confirmed
+      stakingIncome: round(stakingIncome, 2),
+      creatorIncome: round(creatorIncome, 2),
+      receivedIncome: round(receivedIncome, 2),
       currency: 'CAD',
     },
   };
@@ -937,6 +1134,29 @@ export function ledgerToCSV(ledger: IRSLedgerEntry[]): string {
     e.irsCategory,
     e.irsTaxable,
     e.xtzFmvUsd,
+  ].join(','));
+  
+  return [headers.join(','), ...rows].join('\n');
+}
+
+/**
+ * Generate CSV content from income events
+ */
+export function incomeEventsToCSV(
+  incomeEvents: TaxCalculationResult['incomeEvents'],
+  currency: string
+): string {
+  if (incomeEvents.length === 0) {
+    return `timestamp,type,quantity,fmv_${currency.toLowerCase()},note\n`;
+  }
+  
+  const headers = ['timestamp', 'type', 'quantity', `fmv_${currency.toLowerCase()}`, 'note'];
+  const rows = incomeEvents.map(e => [
+    e.timestamp,
+    `"${e.type}"`,
+    e.quantity,
+    e.fmv,
+    `"${e.note}"`,
   ].join(','));
   
   return [headers.join(','), ...rows].join('\n');

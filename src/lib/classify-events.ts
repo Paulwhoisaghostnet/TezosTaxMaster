@@ -170,17 +170,42 @@ function classifyEvent(
     
     if (!hasIncomingInSameOp) {
       event.classification = 'likely_gift';
-      event.classificationNote = 'Sent XTZ with no corresponding receipt - may be a gift';
+      event.classificationNote = 'Sent XTZ with no corresponding receipt - taxable disposal at FMV';
       event.confidence = 'medium';
       return event;
     }
   }
   
-  // Incoming XTZ from unknown source
+  // Outgoing TOKEN/NFT to unknown wallet with no corresponding receipt = gift
+  if (event.direction === 'out' && event.asset !== 'XTZ' && addressType.type === 'wallet') {
+    // Check if there's any incoming asset in the same operation
+    const hasIncomingInSameOp = relatedEvents.some(
+      e => e.direction === 'in' && e.id !== event.id
+    );
+    
+    if (!hasIncomingInSameOp) {
+      event.classification = 'token_gift_out';
+      event.classificationNote = 'Sent token/NFT with no corresponding receipt - taxable disposal at FMV';
+      event.confidence = 'medium';
+      return event;
+    }
+  }
+  
+  // Incoming XTZ from unknown/unowned wallet = INCOME
+  // If it's not from: owned wallet, baker, or CEX, then it's taxable income
   if (event.direction === 'in' && event.asset === 'XTZ' && addressType.type === 'wallet') {
-    event.classification = 'likely_income';
-    event.classificationNote = 'Received XTZ - may be income, gift, or transfer from own wallet';
-    event.confidence = 'low';
+    event.classification = 'received_income';
+    event.classificationNote = 'Received XTZ from external address - taxable income at FMV';
+    event.confidence = 'high';
+    return event;
+  }
+  
+  // Incoming TOKEN/NFT from unknown address (not part of swap/purchase) = potential income/gift received
+  // Cost basis = FMV at receipt (if it's a gift, basis is donor's basis or FMV if unknown)
+  if (event.direction === 'in' && event.asset !== 'XTZ' && addressType.type === 'wallet') {
+    event.classification = 'token_received';
+    event.classificationNote = 'Received token/NFT from external address - cost basis = FMV at receipt';
+    event.confidence = 'medium';
     return event;
   }
   

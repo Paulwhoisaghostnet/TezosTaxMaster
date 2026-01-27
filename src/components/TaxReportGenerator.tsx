@@ -14,9 +14,11 @@ import {
   calculateCRA,
   disposalsToCSV, 
   ledgerToCSV,
+  incomeEventsToCSV,
   IRSDisposal,
   HMRCDisposal,
-  CRADisposal
+  CRADisposal,
+  TaxCalculationResult
 } from '@/lib/tax-calculations';
 
 interface TaxReportGeneratorProps {
@@ -102,6 +104,7 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
         summary: result.summary,
         eventsJson: JSON.stringify(result.ledger),
         disposalsJson: JSON.stringify(result.disposals),
+        incomeEventsJson: JSON.stringify(result.incomeEvents),
       };
 
       // Save to IndexedDB
@@ -137,6 +140,13 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
     const ledger = JSON.parse(report.eventsJson);
     const csv = ledgerToCSV(ledger);
     downloadCSV(csv, `${report.jurisdiction}_${report.year}_ledger.csv`);
+  };
+
+  const handleDownloadIncome = () => {
+    if (!report || !report.incomeEventsJson) return;
+    const incomeEvents = JSON.parse(report.incomeEventsJson) as TaxCalculationResult['incomeEvents'];
+    const csv = incomeEventsToCSV(incomeEvents, report.summary.currency);
+    downloadCSV(csv, `${report.jurisdiction}_${report.year}_income.csv`);
   };
 
   const handleDownloadSummary = () => {
@@ -374,28 +384,61 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
             {report.summary.totalIncome !== undefined && report.summary.totalIncome > 0 && (
               <div className="mb-4">
                 <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">
-                  {report.jurisdiction === 'irs' ? 'Ordinary Income' : 
+                  {report.jurisdiction === 'irs' ? 'Ordinary Income (100% Taxable)' : 
                    report.jurisdiction === 'hmrc' ? 'Misc/Trading Income' : 
-                   'Business Income'}
+                   'Business Income (100% Taxable)'}
                 </div>
-                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border-2 border-purple-200 dark:border-purple-800">
-                  <div className="flex justify-between items-center">
+                
+                {/* Total Income */}
+                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border-2 border-purple-200 dark:border-purple-800 mb-2">
+                  <div className="flex justify-between items-center mb-3">
                     <div>
                       <div className="text-xs text-purple-600 dark:text-purple-400 uppercase tracking-wide">
-                        {report.jurisdiction === 'irs' ? 'Schedule C / Schedule 1' : 
-                         report.jurisdiction === 'hmrc' ? 'Self Assessment' : 
-                         '100% Taxable'}
+                        Total Income
                       </div>
                       <div className="text-xl font-semibold text-purple-700 dark:text-purple-300">
                         {formatCurrency(report.summary.totalIncome, report.summary.currency)}
                       </div>
                     </div>
                     <div className="text-xs text-purple-600 dark:text-purple-400 max-w-xs text-right">
-                      {report.jurisdiction === 'irs' ? 'Staking rewards & creator sales - subject to self-employment tax' : 
+                      {report.jurisdiction === 'irs' ? 'Report on Schedule 1 or Schedule C' : 
                        report.jurisdiction === 'hmrc' ? '£1,000 trading allowance may apply' : 
-                       'Business income - NOT eligible for 50% capital gains rate'}
+                       'NOT eligible for 50% capital gains rate'}
                     </div>
                   </div>
+                  
+                  {/* Income Breakdown */}
+                  <div className="border-t border-purple-100 dark:border-purple-900 pt-2 space-y-1">
+                    {report.summary.stakingIncome !== undefined && report.summary.stakingIncome > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Staking Rewards</span>
+                        <span className="text-purple-700 dark:text-purple-300">
+                          {formatCurrency(report.summary.stakingIncome, report.summary.currency)}
+                        </span>
+                      </div>
+                    )}
+                    {report.summary.creatorIncome !== undefined && report.summary.creatorIncome > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Creator Sales</span>
+                        <span className="text-purple-700 dark:text-purple-300">
+                          {formatCurrency(report.summary.creatorIncome, report.summary.currency)}
+                        </span>
+                      </div>
+                    )}
+                    {report.summary.receivedIncome !== undefined && report.summary.receivedIncome > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Received from External Addresses</span>
+                        <span className="text-purple-700 dark:text-purple-300">
+                          {formatCurrency(report.summary.receivedIncome, report.summary.currency)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Income Note */}
+                <div className="p-2 bg-purple-50 dark:bg-purple-950 rounded text-xs text-purple-700 dark:text-purple-300">
+                  <strong>Note:</strong> XTZ received from addresses not in your wallet list (and not from CEXs or bakers) is treated as taxable income at FMV when received. To reclassify, add the sending wallet to your app.
                 </div>
               </div>
             )}
@@ -419,6 +462,15 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
                 <Download className="w-4 h-4" />
                 Disposals CSV
               </button>
+              {report.incomeEventsJson && JSON.parse(report.incomeEventsJson).length > 0 && (
+                <button
+                  onClick={handleDownloadIncome}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors text-gray-700 dark:text-gray-300"
+                >
+                  <Download className="w-4 h-4" />
+                  Income CSV
+                </button>
+              )}
               <button
                 onClick={handleDownloadLedger}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors text-gray-700 dark:text-gray-300"

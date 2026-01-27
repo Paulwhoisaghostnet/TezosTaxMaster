@@ -47,8 +47,10 @@ export interface TxEvent {
     | 'nft_purchase'      // XTZ out + NFT in
     | 'nft_sale'          // NFT out + XTZ in
     | 'creator_sale'      // Sold a token that was minted/created (ordinary income)
-    | 'likely_gift'       // Sent XTZ with no corresponding receipt
-    | 'likely_income'     // Received XTZ (airdrop, payment, etc)
+    | 'likely_gift'       // Sent XTZ with no corresponding receipt (taxable disposal)
+    | 'token_gift_out'    // Sent token/NFT with no corresponding receipt (taxable disposal)
+    | 'received_income'   // Received XTZ from external address (taxable income)
+    | 'token_received'    // Received token/NFT from external address (cost basis = FMV)
     | 'dex_interaction'   // Other DEX interaction
     | 'unknown';          // Needs manual review
   classificationNote?: string; // Additional context
@@ -77,11 +79,16 @@ export interface TaxReport {
     totalCostBasis: number;
     totalGain: number;
     taxableGain?: number; // For CRA: 50% of capital gains only
-    totalIncome?: number; // Ordinary/business income (staking + creator sales)
+    totalIncome?: number; // Total income from all sources
+    confirmedIncome?: number; // All income is confirmed
+    stakingIncome?: number; // Baking/staking rewards
+    creatorIncome?: number; // Sales of self-created tokens
+    receivedIncome?: number; // XTZ received from external addresses
     currency: string;
   };
   eventsJson: string;
   disposalsJson: string;
+  incomeEventsJson?: string; // Detailed income events
 }
 
 interface TaxMasterDB extends DBSchema {
