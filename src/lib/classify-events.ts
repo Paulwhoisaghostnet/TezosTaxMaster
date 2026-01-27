@@ -41,11 +41,35 @@ export function classifyEvents(
     eventsByOpHash.get(event.opHash)!.push(event);
   }
   
+  // Track token inventory: which tokens were minted vs purchased
+  // Key: asset string, Value: { minted: boolean, acquired: boolean }
+  const tokenInventory = new Map<string, { minted: boolean; acquired: boolean }>();
+  
+  // First pass: build token inventory (chronological)
+  const sortedEvents = [...events].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  for (const event of sortedEvents) {
+    if (event.asset === 'XTZ') continue;
+    
+    const assetKey = event.asset;
+    if (!tokenInventory.has(assetKey)) {
+      tokenInventory.set(assetKey, { minted: false, acquired: false });
+    }
+    
+    const inv = tokenInventory.get(assetKey)!;
+    if (event.direction === 'in') {
+      if (event.isMint) {
+        inv.minted = true;
+      } else {
+        inv.acquired = true;
+      }
+    }
+  }
+  
   // Classify each event
   const classifiedEvents: TxEvent[] = [];
   
   for (const event of events) {
-    const classified = classifyEvent(event, eventsByOpHash, context, delegates);
+    const classified = classifyEvent(event, eventsByOpHash, context, delegates, tokenInventory);
     classifiedEvents.push(classified);
   }
   
@@ -56,7 +80,8 @@ function classifyEvent(
   event: TxEvent,
   eventsByOpHash: Map<string, TxEvent[]>,
   context: ClassificationContext,
-  delegates: Set<string>
+  delegates: Set<string>,
+  tokenInventory: Map<string, { minted: boolean; acquired: boolean }>
 ): TxEvent {
   const counterpartyLower = event.counterparty.toLowerCase();
   const addressType = getAddressType(event.counterparty);
@@ -106,7 +131,7 @@ function classifyEvent(
   // Check for swaps (same opHash with XTZ and token moving in opposite directions)
   const relatedEvents = eventsByOpHash.get(event.opHash) || [];
   if (relatedEvents.length > 1) {
-    const swapResult = detectSwap(event, relatedEvents);
+    const swapResult = detectSwap(event, relatedEvents, tokenInventory);
     if (swapResult) {
       event.classification = swapResult.classification;
       event.classificationNote = swapResult.note;
@@ -122,6 +147,18 @@ function classifyEvent(
     event.classificationNote = `Interaction with ${addressType.name}`;
     event.confidence = 'medium';
     return event;
+  }
+  
+  // Creator sale detection: selling a token that was minted (not purchased)
+  // For US tax: this is ordinary income (Schedule C), not capital gains
+  if (event.direction === 'out' && event.asset !== 'XTZ') {
+    const inv = tokenInventory.get(event.asset);
+    if (inv && inv.minted && !inv.acquired) {
+      event.classification = 'creator_sale';
+      event.classificationNote = 'Sale of self-created token - ordinary income (Schedule C for US)';
+      event.confidence = 'high';
+      return event;
+    }
   }
   
   // Outgoing XTZ to unknown wallet with no corresponding receipt = likely gift
@@ -160,13 +197,19 @@ interface SwapDetectionResult {
 
 function detectSwap(
   event: TxEvent,
-  relatedEvents: TxEvent[]
+  relatedEvents: TxEvent[],
+  tokenInventory: Map<string, { minted: boolean; acquired: boolean }>
 ): SwapDetectionResult | null {
   // Look for patterns indicating a swap
   const xtzOut = relatedEvents.find(e => e.asset === 'XTZ' && e.direction === 'out');
   const xtzIn = relatedEvents.find(e => e.asset === 'XTZ' && e.direction === 'in');
   const tokenOut = relatedEvents.find(e => e.asset !== 'XTZ' && e.direction === 'out');
   const tokenIn = relatedEvents.find(e => e.asset !== 'XTZ' && e.direction === 'in');
+  
+  // Check if tokenOut was minted (for creator sale detection)
+  const tokenOutWasMinted = tokenOut && tokenInventory.get(tokenOut.asset);
+  const isCreatorSale = tokenOutWasMinted && 
+    tokenOutWasMinted.minted && !tokenOutWasMinted.acquired;
   
   // XTZ → Token swap
   if (xtzOut && tokenIn && event.id === xtzOut.id) {
@@ -220,10 +263,28 @@ function detectSwap(
     }
   }
   
-  // NFT sale (NFT out + XTZ in)
+  // NFT/Token sale (Token out + XTZ in)
   if (tokenOut && xtzIn) {
     const isNft = event.tags.includes('likely_nft') ||
                   relatedEvents.some(e => e.tags.includes('likely_nft'));
+    
+    // Check if this is a creator sale (selling a minted token)
+    if (isCreatorSale) {
+      if (event.id === tokenOut.id) {
+        return {
+          classification: 'creator_sale',
+          note: 'Sale of self-created token - ordinary income (Schedule C for US)',
+        };
+      }
+      if (event.id === xtzIn.id) {
+        return {
+          classification: 'creator_sale',
+          note: 'Income from sale of self-created token (Schedule C for US)',
+        };
+      }
+    }
+    
+    // Regular NFT sale (not creator)
     if (isNft) {
       if (event.id === tokenOut.id) {
         return {

@@ -34,6 +34,9 @@ export interface TxEvent {
   // Prices from TzKT quote data (captured at sync time)
   quoteUsd?: number; // XTZ price in USD at transaction time
   quoteGbp?: number; // XTZ price in GBP at transaction time
+  quoteCad?: number; // XTZ price in CAD at transaction time
+  // Mint detection (token was minted/created, not purchased)
+  isMint?: boolean; // True if token was received with no from address (minted)
   // Smart classification (set during post-processing)
   classification?: 
     | 'swap'              // Part of a DEX swap (XTZ ↔ token)
@@ -43,6 +46,7 @@ export interface TxEvent {
     | 'baking_reward'     // Reward from delegated baker
     | 'nft_purchase'      // XTZ out + NFT in
     | 'nft_sale'          // NFT out + XTZ in
+    | 'creator_sale'      // Sold a token that was minted/created (ordinary income)
     | 'likely_gift'       // Sent XTZ with no corresponding receipt
     | 'likely_income'     // Received XTZ (airdrop, payment, etc)
     | 'dex_interaction'   // Other DEX interaction
@@ -56,7 +60,7 @@ export interface TxEvent {
 export interface PriceCache {
   id: string; // date:currency
   date: string; // YYYY-MM-DD
-  currency: 'usd' | 'gbp';
+  currency: 'usd' | 'gbp' | 'cad';
   xtzPrice: number;
   fetchedAt: string;
 }
@@ -65,13 +69,15 @@ export interface TaxReport {
   id: string;
   createdAt: string;
   year: number;
-  jurisdiction: 'irs' | 'hmrc';
+  jurisdiction: 'irs' | 'hmrc' | 'cra';
   walletAddresses: string[];
   summary: {
     totalDisposals: number;
     totalProceeds: number;
     totalCostBasis: number;
     totalGain: number;
+    taxableGain?: number; // For CRA: 50% of capital gains only
+    totalIncome?: number; // Ordinary/business income (staking + creator sales)
     currency: string;
   };
   eventsJson: string;

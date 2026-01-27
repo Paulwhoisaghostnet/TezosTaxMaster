@@ -1,9 +1,13 @@
 /**
  * TzKT API client for fetching Tezos blockchain data
  * All API calls happen client-side - no server involvement
+ * 
+ * Note: TzKT only supports USD, EUR, BTC for quotes.
+ * GBP and CAD are calculated using historical exchange rate data.
  */
 
 import { TxEvent } from './db';
+import { convertFromUSD } from './exchange-rates';
 
 const TZKT_BASE = 'https://api.tzkt.io/v1';
 
@@ -19,7 +23,6 @@ interface TzKTTransaction {
   status?: string;
   quote?: {
     usd?: number;
-    gbp?: number;
   };
 }
 
@@ -42,7 +45,6 @@ interface TzKTTokenTransfer {
   };
   quote?: {
     usd?: number;
-    gbp?: number;
   };
 }
 
@@ -99,7 +101,7 @@ export async function fetchXtzTransactions(
     'timestamp.ge': startIso,
     'timestamp.lt': endIso,
     'status': 'applied',
-    'quote': 'usd,gbp', // Get price data from TzKT
+    'quote': 'usd', // TzKT only supports USD, EUR, BTC - we convert to GBP/CAD
   });
   
   // Fetch incoming transactions (target)
@@ -108,7 +110,7 @@ export async function fetchXtzTransactions(
     'timestamp.ge': startIso,
     'timestamp.lt': endIso,
     'status': 'applied',
-    'quote': 'usd,gbp', // Get price data from TzKT
+    'quote': 'usd', // TzKT only supports USD, EUR, BTC - we convert to GBP/CAD
   });
   
   const [senderOps, targetOps] = await Promise.all([
@@ -143,7 +145,7 @@ export async function fetchTokenTransfers(
     'from': address,
     'timestamp.ge': startIso,
     'timestamp.lt': endIso,
-    'quote': 'usd,gbp', // Get price data from TzKT
+    'quote': 'usd', // TzKT only supports USD, EUR, BTC - we convert to GBP/CAD
   });
   
   // Fetch incoming token transfers (to)
@@ -151,7 +153,7 @@ export async function fetchTokenTransfers(
     'to': address,
     'timestamp.ge': startIso,
     'timestamp.lt': endIso,
-    'quote': 'usd,gbp', // Get price data from TzKT
+    'quote': 'usd', // TzKT only supports USD, EUR, BTC - we convert to GBP/CAD
   });
   
   const [fromOps, toOps] = await Promise.all([
@@ -253,7 +255,8 @@ export function buildEvents(
       tags,
       confidence,
       quoteUsd: op.quote?.usd,
-      quoteGbp: op.quote?.gbp,
+      quoteGbp: op.quote?.usd ? convertFromUSD(op.quote.usd, op.timestamp, 'gbp') : undefined,
+      quoteCad: op.quote?.usd ? convertFromUSD(op.quote.usd, op.timestamp, 'cad') : undefined,
     });
   }
   
@@ -294,6 +297,12 @@ export function buildEvents(
       confidence = 'high';
     }
     
+    // Mint detection: incoming token with no from address = minted/created
+    const isMint = direction === 'in' && !fromAddr;
+    if (isMint) {
+      tags.push('minted');
+    }
+    
     const id = `${address}:${tr.transactionHash || ''}:token:${tr.level}:${contract}:${tokenId}`;
     
     events.push({
@@ -311,8 +320,10 @@ export function buildEvents(
       note: 'token_transfer',
       tags,
       confidence,
+      isMint, // Track if this was a mint operation
       quoteUsd: tr.quote?.usd,
-      quoteGbp: tr.quote?.gbp,
+      quoteGbp: tr.quote?.usd ? convertFromUSD(tr.quote.usd, tr.timestamp, 'gbp') : undefined,
+      quoteCad: tr.quote?.usd ? convertFromUSD(tr.quote.usd, tr.timestamp, 'cad') : undefined,
     });
   }
   

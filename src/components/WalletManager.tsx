@@ -179,17 +179,17 @@ export default function WalletManager({ onWalletsChange }: WalletManagerProps) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
       <div className="flex items-center gap-2 mb-6">
-        <Wallet className="w-5 h-5 text-blue-600" />
-        <h2 className="text-lg font-semibold text-gray-900">Wallets</h2>
+        <Wallet className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Wallets</h2>
       </div>
 
       {/* Add Wallet Form */}
       <form onSubmit={handleAddWallet} className="mb-6">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
-            <label htmlFor="wallet-address" className="block text-xs font-medium text-gray-600 mb-1">
+            <label htmlFor="wallet-address" className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
               Wallet Address
             </label>
             <input
@@ -198,11 +198,11 @@ export default function WalletManager({ onWalletsChange }: WalletManagerProps) {
               placeholder="tz1... or KT1..."
               value={newAddress}
               onChange={(e) => setNewAddress(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
             />
           </div>
           <div className="sm:w-40">
-            <label htmlFor="wallet-alias" className="block text-xs font-medium text-gray-600 mb-1">
+            <label htmlFor="wallet-alias" className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
               Nickname (optional)
             </label>
             <input
@@ -211,7 +211,7 @@ export default function WalletManager({ onWalletsChange }: WalletManagerProps) {
               placeholder="e.g. Main Wallet"
               value={newAlias}
               onChange={(e) => setNewAlias(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
             />
           </div>
           <div className="sm:self-end">
@@ -229,13 +229,13 @@ export default function WalletManager({ onWalletsChange }: WalletManagerProps) {
 
       {/* Messages */}
       {error && (
-        <div className="flex items-center gap-2 p-3 mb-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="flex items-center gap-2 p-3 mb-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
         </div>
       )}
       {success && (
-        <div className="flex items-center gap-2 p-3 mb-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+        <div className="flex items-center gap-2 p-3 mb-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-300 text-sm">
           <CheckCircle className="w-4 h-4 flex-shrink-0" />
           {success}
         </div>
@@ -243,7 +243,7 @@ export default function WalletManager({ onWalletsChange }: WalletManagerProps) {
 
       {/* Wallet List */}
       {wallets.length === 0 ? (
-        <p className="text-gray-500 text-sm text-center py-8">
+        <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-8">
           No wallets added yet. Add your Tezos wallet address above.
         </p>
       ) : (
@@ -251,19 +251,19 @@ export default function WalletManager({ onWalletsChange }: WalletManagerProps) {
           {wallets.map((wallet) => (
             <div
               key={wallet.address}
-              className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-lg gap-3"
+              className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg gap-3"
             >
               <div className="min-w-0 flex-1">
                 {wallet.alias && (
-                  <p className="font-medium text-gray-900">{wallet.alias}</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{wallet.alias}</p>
                 )}
-                <p className="text-sm text-gray-600 font-mono truncate">
+                <p className="text-sm text-gray-600 dark:text-gray-400 font-mono truncate">
                   {wallet.address}
                 </p>
-                <div className="flex flex-wrap gap-x-3 text-xs text-gray-400 mt-1">
+                <div className="flex flex-wrap gap-x-3 text-xs text-gray-400 dark:text-gray-500 mt-1">
                   <span>Last synced: {formatDate(wallet.lastSyncedAt)}</span>
                   {wallet.delegate && (
-                    <span className="text-blue-500">
+                    <span className="text-blue-500 dark:text-blue-400">
                       Delegated to: {wallet.delegateName || wallet.delegate.slice(0, 8) + '...'}
                     </span>
                   )}
@@ -273,14 +273,14 @@ export default function WalletManager({ onWalletsChange }: WalletManagerProps) {
                 <button
                   onClick={() => handleSyncWallet(wallet.address)}
                   disabled={syncingWallet === wallet.address}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-lg transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className={`w-4 h-4 ${syncingWallet === wallet.address ? 'animate-spin' : ''}`} />
                   {syncingWallet === wallet.address ? 'Syncing...' : 'Sync'}
                 </button>
                 <button
                   onClick={() => handleDeleteWallet(wallet.address)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

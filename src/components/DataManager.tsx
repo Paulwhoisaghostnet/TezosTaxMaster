@@ -89,13 +89,13 @@ export default function DataManager({ onDataChange }: DataManagerProps) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
       <div className="flex items-center gap-2 mb-6">
-        <Database className="w-5 h-5 text-blue-600" />
-        <h2 className="text-lg font-semibold text-gray-900">Data Management</h2>
+        <Database className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Management</h2>
       </div>
 
-      <p className="text-sm text-gray-600 mb-4">
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
         All your data is stored locally in your browser. Use these tools to backup, restore, or clear your data.
       </p>
 
@@ -103,8 +103,8 @@ export default function DataManager({ onDataChange }: DataManagerProps) {
       {message && (
         <div className={`flex items-center gap-2 p-3 mb-4 rounded-lg text-sm ${
           message.type === 'success' 
-            ? 'bg-green-50 border border-green-200 text-green-700' 
-            : 'bg-red-50 border border-red-200 text-red-700'
+            ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300' 
+            : 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
         }`}>
           {message.type === 'success' ? (
             <CheckCircle className="w-4 h-4 flex-shrink-0" />
@@ -120,10 +120,10 @@ export default function DataManager({ onDataChange }: DataManagerProps) {
         <button
           onClick={handleExport}
           disabled={isExporting}
-          className="flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+          className="flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
         >
-          <Download className="w-4 h-4 text-blue-600" />
-          <span className="text-sm font-medium text-gray-700">
+          <Download className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {isExporting ? 'Exporting...' : 'Export Backup'}
           </span>
         </button>
@@ -132,10 +132,10 @@ export default function DataManager({ onDataChange }: DataManagerProps) {
         <button
           onClick={handleImportClick}
           disabled={isImporting}
-          className="flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+          className="flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
         >
-          <Upload className="w-4 h-4 text-green-600" />
-          <span className="text-sm font-medium text-gray-700">
+          <Upload className="w-4 h-4 text-green-600 dark:text-green-400" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {isImporting ? 'Importing...' : 'Import Backup'}
           </span>
         </button>
@@ -150,15 +150,15 @@ export default function DataManager({ onDataChange }: DataManagerProps) {
         {/* Clear */}
         <button
           onClick={handleClearAll}
-          className="flex items-center justify-center gap-2 px-4 py-3 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+          className="flex items-center justify-center gap-2 px-4 py-3 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
         >
-          <Trash2 className="w-4 h-4 text-red-600" />
-          <span className="text-sm font-medium text-red-600">Clear All Data</span>
+          <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+          <span className="text-sm font-medium text-red-600 dark:text-red-400">Clear All Data</span>
         </button>
       </div>
 
-      <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-        <p className="text-xs text-amber-800">
+      <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+        <p className="text-xs text-amber-800 dark:text-amber-200">
           <strong>Privacy Note:</strong> Your transaction data and tax reports are stored only in your browser&apos;s local database (IndexedDB). 
           Nothing is sent to any server. If you clear your browser data, this information will be lost unless you export a backup.
         </p>

@@ -73,14 +73,31 @@ export interface HMRCDisposal {
   note: string;
 }
 
+export interface CRADisposal {
+  timestamp: string;
+  asset: string;
+  qtyDisposed: number;
+  fmvCadPerXtz: number;
+  proceedsCad: number;
+  acbCad: number; // Adjusted Cost Base
+  gainCad: number;
+  taxableGainCad: number; // 50% of capital gain (inclusion rate)
+  opHash: string;
+  acbPerUnit: number; // ACB per unit at time of disposal
+  classification?: string;
+  note: string;
+}
+
 export interface TaxCalculationResult {
   ledger: IRSLedgerEntry[];
-  disposals: IRSDisposal[] | HMRCDisposal[];
+  disposals: IRSDisposal[] | HMRCDisposal[] | CRADisposal[];
   summary: {
     totalDisposals: number;
     totalProceeds: number;
     totalCostBasis: number;
     totalGain: number;
+    taxableGain?: number; // For CRA: 50% inclusion rate on capital gains only
+    totalIncome?: number; // Ordinary/business income (staking rewards + creator sales)
     currency: string;
   };
   incomeEvents: Array<{
@@ -99,7 +116,7 @@ interface FifoLot {
 }
 
 /**
- * Check if an event is a taxable disposal
+ * Check if an event is a taxable disposal (capital gains)
  */
 function isTaxableDisposal(e: TxEvent): boolean {
   // Self-transfers are not taxable
@@ -108,6 +125,10 @@ function isTaxableDisposal(e: TxEvent): boolean {
   // CEX deposits are not taxable (taxable when sold on CEX)
   if (e.classification === 'cex_deposit') return false;
   
+  // Creator sales are ordinary income, not capital gains
+  // (IRS treats sale of self-created items as business income, not cap gains)
+  if (e.classification === 'creator_sale') return false;
+  
   // Outgoing XTZ or tokens are generally taxable disposals
   if (e.direction === 'out' && e.quantity > 0) return true;
   
@@ -115,11 +136,15 @@ function isTaxableDisposal(e: TxEvent): boolean {
 }
 
 /**
- * Check if an event is taxable income
+ * Check if an event is taxable ordinary income (not capital gains)
  */
 function isTaxableIncome(e: TxEvent): boolean {
   // Baking rewards are ordinary income
   if (e.classification === 'baking_reward') return true;
+  
+  // Creator sales: selling self-created tokens is ordinary income (Schedule C)
+  // The entire proceeds are income, cost basis is your actual costs (gas, materials)
+  if (e.classification === 'creator_sale') return true;
   
   // CEX withdrawals are not income (you already owned it)
   if (e.classification === 'cex_withdrawal') return false;
@@ -145,7 +170,9 @@ function getDisposalNote(e: TxEvent): string {
     case 'nft_purchase':
       return 'NFT purchase';
     case 'nft_sale':
-      return 'NFT sale';
+      return 'NFT sale - capital gain/loss (acquired token sold)';
+    case 'creator_sale':
+      return 'Creator sale - ordinary income, NOT capital gains (self-created token sold)';
     case 'dex_interaction':
       return `DEX interaction: ${e.classificationNote || 'Unknown'}`;
     default:
@@ -202,7 +229,7 @@ export function calculateIRS(
       } else if (e.classification === 'baking_reward') {
         irsCategory = 'ordinary_income';
         taxable = 'yes';
-        // Baking rewards are income at FMV when received
+        // Baking rewards are ordinary income at FMV when received
         xtzLots.push({
           acquiredTs: e.timestamp,
           qty: e.quantity,
@@ -210,10 +237,28 @@ export function calculateIRS(
         });
         incomeEvents.push({
           timestamp: e.timestamp,
-          type: 'Baking Reward',
+          type: 'Staking Reward (Ordinary Income)',
           quantity: e.quantity,
           fmv: e.quantity * fmvUsd,
-          note: e.classificationNote || 'Staking/baking reward',
+          note: e.classificationNote || 'IRS: Ordinary income at FMV when received - report on Schedule 1 or Schedule C if business activity.',
+        });
+      } else if (e.classification === 'creator_sale' && e.direction === 'in') {
+        // Creator sale income: XTZ received from selling self-created token
+        // This is ordinary income (Schedule C), not capital gains
+        irsCategory = 'creator_income';
+        taxable = 'yes';
+        // Create lot with FMV basis (for if they later sell this XTZ)
+        xtzLots.push({
+          acquiredTs: e.timestamp,
+          qty: e.quantity,
+          basisPer: fmvUsd,
+        });
+        incomeEvents.push({
+          timestamp: e.timestamp,
+          type: 'Creator Sale (Self-Employment)',
+          quantity: e.quantity,
+          fmv: e.quantity * fmvUsd,
+          note: e.classificationNote || 'IRS: Self-employment income from sale of self-created token - report on Schedule C. Subject to self-employment tax.',
         });
       } else if (e.direction === 'in' && e.quantity > 0) {
         // Other acquisitions
@@ -318,6 +363,9 @@ export function calculateIRS(
     onProgress?.(((i + 1) / events.length) * 100, `Processing event ${i + 1}/${events.length}`);
   }
   
+  // Calculate total ordinary income (staking + creator sales)
+  const totalIncome = incomeEvents.reduce((sum, e) => sum + e.fmv, 0);
+  
   return {
     ledger,
     disposals,
@@ -327,6 +375,7 @@ export function calculateIRS(
       totalProceeds: round(totalProceeds, 2),
       totalCostBasis: round(totalBasis, 2),
       totalGain: round(totalGain, 2),
+      totalIncome: round(totalIncome, 2), // Ordinary income (Schedule 1/C)
       currency: 'USD',
     },
   };
@@ -373,14 +422,25 @@ export function calculateHMRC(
       const dt = new Date(e.timestamp);
       const day = e.timestamp.substring(0, 10);
       
-      // Track baking rewards as income
+      // Track baking rewards as miscellaneous income (HMRC: £1,000 trading allowance may apply)
       if (e.classification === 'baking_reward') {
         incomeEvents.push({
           timestamp: e.timestamp,
-          type: 'Baking Reward',
+          type: 'Staking Reward (Misc Income)',
           quantity: e.quantity,
           fmv: e.quantity * fmvGbp,
-          note: e.classificationNote || 'Staking/baking reward',
+          note: e.classificationNote || 'HMRC: Miscellaneous income - £1,000 trading allowance may apply. Report on Self Assessment if total exceeds allowance.',
+        });
+      }
+      
+      // Track creator sales as trading income (HMRC: report as self-employment)
+      if (e.classification === 'creator_sale') {
+        incomeEvents.push({
+          timestamp: e.timestamp,
+          type: 'Creator Sale (Trading Income)',
+          quantity: e.quantity,
+          fmv: e.quantity * fmvGbp,
+          note: e.classificationNote || 'HMRC: Trading income from sale of self-created token - report on Self Assessment as self-employment income.',
         });
       }
       
@@ -568,6 +628,9 @@ export function calculateHMRC(
     };
   });
   
+  // Calculate total income (miscellaneous + trading income)
+  const totalIncome = incomeEvents.reduce((sum, e) => sum + e.fmv, 0);
+  
   return {
     ledger,
     disposals,
@@ -577,7 +640,198 @@ export function calculateHMRC(
       totalProceeds: round(totalProceeds, 2),
       totalCostBasis: round(totalCost, 2),
       totalGain: round(totalGain, 2),
+      totalIncome: round(totalIncome, 2), // Miscellaneous/trading income (£1k allowance may apply)
       currency: 'GBP',
+    },
+  };
+}
+
+/**
+ * CRA (Canada Revenue Agency) ACB calculation
+ * - Uses Adjusted Cost Base (ACB) method - average cost pooling
+ * - Only 50% of capital gains are taxable (inclusion rate)
+ * - Each crypto asset has its own ACB pool
+ * - Superficial loss rule: can't claim loss if repurchased within 30 days
+ * 
+ * Reference: https://www.canada.ca/en/revenue-agency/programs/about-canada-revenue-agency-cra/compliance/digital-currency/cryptocurrency-guide.html
+ */
+export function calculateCRA(
+  events: TxEvent[],
+  onProgress?: (progress: number, message: string) => void
+): TaxCalculationResult {
+  const disposals: CRADisposal[] = [];
+  const incomeEvents: TaxCalculationResult['incomeEvents'] = [];
+  
+  // ACB pool for XTZ (Adjusted Cost Base)
+  let acbPoolQty = 0;
+  let acbPoolCost = 0;
+  
+  // Filter and sort XTZ events
+  const xtzEvents = events.filter(e => e.asset === 'XTZ' && e.quantity > 0);
+  xtzEvents.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  
+  let totalProceeds = 0;
+  let totalCost = 0;
+  let totalGain = 0;
+  let totalTaxableGain = 0;
+  
+  // Process events chronologically
+  let processedCount = 0;
+  for (const e of xtzEvents) {
+    const fmvCad = e.quoteCad || 0;
+    
+    // Skip non-taxable transfers
+    if (e.classification === 'self_transfer') {
+      processedCount++;
+      continue;
+    }
+    
+    if (e.direction === 'in') {
+      // Acquisition - add to ACB pool
+      const cost = e.quantity * fmvCad;
+      acbPoolQty += e.quantity;
+      acbPoolCost += cost;
+      
+      // Track baking rewards as business income (CRA: 100% taxable, NOT 50%)
+      if (e.classification === 'baking_reward') {
+        incomeEvents.push({
+          timestamp: e.timestamp,
+          type: 'Baking Reward (Business Income)',
+          quantity: e.quantity,
+          fmv: cost,
+          note: e.classificationNote || 'CRA: Business income from staking - 100% taxable (not eligible for 50% capital gains rate)',
+        });
+      }
+      
+      // Track creator sales as business income (CRA: 100% taxable, NOT 50%)
+      if (e.classification === 'creator_sale') {
+        incomeEvents.push({
+          timestamp: e.timestamp,
+          type: 'Creator Sale (Business Income)',
+          quantity: e.quantity,
+          fmv: cost,
+          note: e.classificationNote || 'CRA: Business income from sale of self-created token - 100% taxable (not eligible for 50% capital gains rate)',
+        });
+      }
+      
+      processedCount++;
+      continue;
+    }
+    
+    // Skip CEX deposits (not taxable until sold)
+    if (e.classification === 'cex_deposit') {
+      processedCount++;
+      continue;
+    }
+    
+    // Disposal - calculate using ACB
+    const proceeds = e.quantity * fmvCad;
+    
+    // Calculate ACB for disposed units
+    let acbPerUnit = 0;
+    if (acbPoolQty > 1e-12) {
+      acbPerUnit = acbPoolCost / acbPoolQty;
+    }
+    const acb = e.quantity * acbPerUnit;
+    
+    // Reduce ACB pool
+    acbPoolQty -= e.quantity;
+    acbPoolCost -= acb;
+    
+    // Ensure pool doesn't go negative
+    if (acbPoolQty < 0) acbPoolQty = 0;
+    if (acbPoolCost < 0) acbPoolCost = 0;
+    
+    const gain = proceeds - acb;
+    
+    // In Canada, only 50% of capital gains are taxable (inclusion rate)
+    // Note: As of 2024, gains over $250k have 66.67% inclusion, but we use 50% as default
+    const taxableGain = gain > 0 ? gain * 0.5 : gain; // Losses are also at 50%
+    
+    totalProceeds += proceeds;
+    totalCost += acb;
+    totalGain += gain;
+    totalTaxableGain += taxableGain;
+    
+    disposals.push({
+      timestamp: e.timestamp,
+      asset: 'XTZ',
+      qtyDisposed: e.quantity,
+      fmvCadPerXtz: round(fmvCad, 8),
+      proceedsCad: round(proceeds, 8),
+      acbCad: round(acb, 8),
+      gainCad: round(gain, 8),
+      taxableGainCad: round(taxableGain, 8),
+      opHash: e.opHash,
+      acbPerUnit: round(acbPerUnit, 8),
+      classification: e.classification,
+      note: getDisposalNote(e) + ' ACB (Adjusted Cost Base) method used.',
+    });
+    
+    processedCount++;
+    onProgress?.(
+      (processedCount / xtzEvents.length) * 100,
+      `Processing event ${processedCount}/${xtzEvents.length}`
+    );
+  }
+  
+  // Generate ledger
+  const ledger: IRSLedgerEntry[] = events.map(e => {
+    let irsCategory = 'review';
+    let taxable = 'unknown';
+    
+    if (e.classification === 'self_transfer') {
+      irsCategory = 'self_transfer';
+      taxable = 'no';
+    } else if (e.classification === 'cex_deposit') {
+      irsCategory = 'cex_deposit';
+      taxable = 'no';
+    } else if (e.classification === 'baking_reward') {
+      irsCategory = 'income';
+      taxable = 'yes';
+    } else if (e.direction === 'out') {
+      irsCategory = 'disposal';
+      taxable = 'yes';
+    } else {
+      irsCategory = 'acquisition';
+      taxable = 'maybe';
+    }
+    
+    return {
+      timestamp: e.timestamp,
+      level: e.level,
+      opHash: e.opHash,
+      kind: e.kind,
+      direction: e.direction,
+      counterparty: e.counterparty,
+      asset: e.asset,
+      quantity: e.quantity,
+      feeXtz: e.feeXtz,
+      tags: e.tags,
+      confidence: e.confidence,
+      classification: e.classification,
+      classificationNote: e.classificationNote,
+      irsCategory,
+      irsTaxable: taxable,
+      xtzFmvUsd: 0, // Not used for CRA
+    };
+  });
+  
+  // Calculate total business income (100% taxable - NOT eligible for 50% capital gains rate)
+  const totalIncome = incomeEvents.reduce((sum, e) => sum + e.fmv, 0);
+  
+  return {
+    ledger,
+    disposals,
+    incomeEvents,
+    summary: {
+      totalDisposals: disposals.length,
+      totalProceeds: round(totalProceeds, 2),
+      totalCostBasis: round(totalCost, 2),
+      totalGain: round(totalGain, 2),
+      taxableGain: round(totalTaxableGain, 2), // 50% inclusion rate - capital gains ONLY
+      totalIncome: round(totalIncome, 2), // Business income - 100% taxable
+      currency: 'CAD',
     },
   };
 }
@@ -591,13 +845,17 @@ function round(n: number, decimals: number): number {
  * Generate CSV content from disposals
  */
 export function disposalsToCSV(
-  disposals: IRSDisposal[] | HMRCDisposal[],
-  jurisdiction: 'irs' | 'hmrc'
+  disposals: IRSDisposal[] | HMRCDisposal[] | CRADisposal[],
+  jurisdiction: 'irs' | 'hmrc' | 'cra'
 ): string {
   if (disposals.length === 0) {
-    return jurisdiction === 'irs'
-      ? 'timestamp,asset,qty_disposed,fmv_usd_per_xtz,proceeds_usd,basis_usd,gain_usd,fee_xtz,op_hash,classification,note\n'
-      : 'timestamp,asset,qty_disposed,fmv_gbp_per_xtz,proceeds_gbp,allowable_cost_gbp,gain_gbp,op_hash,classification,note\n';
+    if (jurisdiction === 'irs') {
+      return 'timestamp,asset,qty_disposed,fmv_usd_per_xtz,proceeds_usd,basis_usd,gain_usd,fee_xtz,op_hash,classification,note\n';
+    } else if (jurisdiction === 'hmrc') {
+      return 'timestamp,asset,qty_disposed,fmv_gbp_per_xtz,proceeds_gbp,allowable_cost_gbp,gain_gbp,op_hash,classification,note\n';
+    } else {
+      return 'timestamp,asset,qty_disposed,fmv_cad_per_xtz,proceeds_cad,acb_cad,gain_cad,taxable_gain_cad,acb_per_unit,op_hash,classification,note\n';
+    }
   }
   
   if (jurisdiction === 'irs') {
@@ -617,7 +875,7 @@ export function disposalsToCSV(
       `"${d.note}"`,
     ].join(','));
     return [headers.join(','), ...rows].join('\n');
-  } else {
+  } else if (jurisdiction === 'hmrc') {
     const hmrcDisposals = disposals as HMRCDisposal[];
     const headers = ['timestamp', 'asset', 'qty_disposed', 'fmv_gbp_per_xtz', 'proceeds_gbp', 'allowable_cost_gbp', 'gain_gbp', 'op_hash', 'classification', 'note'];
     const rows = hmrcDisposals.map(d => [
@@ -628,6 +886,24 @@ export function disposalsToCSV(
       d.proceedsGbp,
       d.allowableCostGbp,
       d.gainGbp,
+      d.opHash,
+      d.classification || '',
+      `"${d.note}"`,
+    ].join(','));
+    return [headers.join(','), ...rows].join('\n');
+  } else {
+    const craDisposals = disposals as CRADisposal[];
+    const headers = ['timestamp', 'asset', 'qty_disposed', 'fmv_cad_per_xtz', 'proceeds_cad', 'acb_cad', 'gain_cad', 'taxable_gain_cad', 'acb_per_unit', 'op_hash', 'classification', 'note'];
+    const rows = craDisposals.map(d => [
+      d.timestamp,
+      d.asset,
+      d.qtyDisposed,
+      d.fmvCadPerXtz,
+      d.proceedsCad,
+      d.acbCad,
+      d.gainCad,
+      d.taxableGainCad,
+      d.acbPerUnit,
       d.opHash,
       d.classification || '',
       `"${d.note}"`,
