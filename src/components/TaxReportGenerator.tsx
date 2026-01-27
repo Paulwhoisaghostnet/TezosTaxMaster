@@ -12,12 +12,14 @@ import {
   calculateIRS, 
   calculateHMRC,
   calculateCRA,
+  calculateATO,
   disposalsToCSV, 
   ledgerToCSV,
   incomeEventsToCSV,
   IRSDisposal,
   HMRCDisposal,
   CRADisposal,
+  ATODisposal,
   TaxCalculationResult
 } from '@/lib/tax-calculations';
 
@@ -27,7 +29,7 @@ interface TaxReportGeneratorProps {
 
 export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps) {
   const [year, setYear] = useState(new Date().getFullYear() - 1);
-  const [jurisdiction, setJurisdiction] = useState<'irs' | 'hmrc' | 'cra'>('irs');
+  const [jurisdiction, setJurisdiction] = useState<'irs' | 'hmrc' | 'cra' | 'ato'>('irs');
   const [selectedWallets, setSelectedWallets] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState<{ percent: number; message: string } | null>(null);
@@ -90,7 +92,9 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
         ? calculateIRS(events, (pct, msg) => setProgress({ percent: 10 + pct * 0.8, message: msg }))
         : jurisdiction === 'hmrc'
           ? calculateHMRC(events, (pct, msg) => setProgress({ percent: 10 + pct * 0.8, message: msg }))
-          : calculateCRA(events, (pct, msg) => setProgress({ percent: 10 + pct * 0.8, message: msg }));
+          : jurisdiction === 'cra'
+            ? calculateCRA(events, (pct, msg) => setProgress({ percent: 10 + pct * 0.8, message: msg }))
+            : calculateATO(events, (pct, msg) => setProgress({ percent: 10 + pct * 0.8, message: msg }));
 
       setProgress({ percent: 95, message: 'Saving report...' });
 
@@ -201,7 +205,7 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
         {/* Jurisdiction Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tax Jurisdiction</label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <button
               type="button"
               onClick={() => setJurisdiction('irs')}
@@ -237,6 +241,18 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
             >
               <div className="font-medium">CRA (Canada)</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">ACB, 50% inclusion</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setJurisdiction('ato')}
+              className={`p-4 border-2 rounded-lg transition-colors ${
+                jurisdiction === 'ato'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-900 dark:text-gray-100'
+              }`}
+            >
+              <div className="font-medium">ATO (Australia)</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">FIFO, 50% CGT discount</div>
             </button>
           </div>
         </div>
@@ -358,7 +374,7 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
                 </div>
                 <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
                   <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    {report.jurisdiction === 'cra' ? 'ACB' : 'Cost Basis'}
+                    {report.jurisdiction === 'cra' ? 'ACB' : report.jurisdiction === 'ato' ? 'Cost Base' : 'Cost Basis'}
                   </div>
                   <div className="text-xl font-semibold text-gray-900 dark:text-white">
                     {formatCurrency(report.summary.totalCostBasis, report.summary.currency)}
@@ -378,6 +394,34 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
                   Taxable Capital Gain (50% inclusion): {formatCurrency(Math.abs(report.summary.taxableGain), report.summary.currency)}
                 </div>
               )}
+              {report.jurisdiction === 'ato' && report.summary.taxableGain !== undefined && (
+                <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                  <div className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                    {report.summary.longTermGain !== undefined && report.summary.longTermGain > 0 && (
+                      <div className="flex justify-between">
+                        <span>Long-term gains (&gt;12 months):</span>
+                        <span>{formatCurrency(report.summary.longTermGain, report.summary.currency)}</span>
+                      </div>
+                    )}
+                    {report.summary.shortTermGain !== undefined && report.summary.shortTermGain > 0 && (
+                      <div className="flex justify-between">
+                        <span>Short-term gains (≤12 months):</span>
+                        <span>{formatCurrency(report.summary.shortTermGain, report.summary.currency)}</span>
+                      </div>
+                    )}
+                    {report.summary.cgtDiscount !== undefined && report.summary.cgtDiscount > 0 && (
+                      <div className="flex justify-between text-green-700 dark:text-green-400">
+                        <span>50% CGT Discount:</span>
+                        <span>-{formatCurrency(report.summary.cgtDiscount, report.summary.currency)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-semibold border-t border-amber-200 dark:border-amber-800 pt-1">
+                      <span>Net Taxable Capital Gain:</span>
+                      <span>{formatCurrency(report.summary.taxableGain, report.summary.currency)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Summary - Income Section */}
@@ -386,7 +430,8 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
                 <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">
                   {report.jurisdiction === 'irs' ? 'Ordinary Income (100% Taxable)' : 
                    report.jurisdiction === 'hmrc' ? 'Misc/Trading Income' : 
-                   'Business Income (100% Taxable)'}
+                   report.jurisdiction === 'cra' ? 'Business Income (100% Taxable)' :
+                   'Assessable Income (100% Taxable)'}
                 </div>
                 
                 {/* Total Income */}
@@ -403,7 +448,8 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
                     <div className="text-xs text-purple-600 dark:text-purple-400 max-w-xs text-right">
                       {report.jurisdiction === 'irs' ? 'Report on Schedule 1 or Schedule C' : 
                        report.jurisdiction === 'hmrc' ? '£1,000 trading allowance may apply' : 
-                       'NOT eligible for 50% capital gains rate'}
+                       report.jurisdiction === 'cra' ? 'NOT eligible for 50% capital gains rate' :
+                       'Report as Other Income - no CGT discount'}
                     </div>
                   </div>
                   
@@ -444,11 +490,11 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
             )}
 
             {/* Exchange Rate Notice for non-USD jurisdictions */}
-            {(report.jurisdiction === 'hmrc' || report.jurisdiction === 'cra') && (
+            {(report.jurisdiction === 'hmrc' || report.jurisdiction === 'cra' || report.jurisdiction === 'ato') && (
               <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <div className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>Exchange Rates:</strong> {report.jurisdiction === 'hmrc' ? 'GBP' : 'CAD'} values are calculated using historical daily exchange rates for each transaction date. 
-                  For official filing, you may verify against {report.jurisdiction === 'hmrc' ? 'HMRC/Bank of England rates' : 'Bank of Canada daily rates'}.
+                  <strong>Exchange Rates:</strong> {report.jurisdiction === 'hmrc' ? 'GBP' : report.jurisdiction === 'cra' ? 'CAD' : 'AUD'} values are calculated using historical daily exchange rates for each transaction date. 
+                  For official filing, you may verify against {report.jurisdiction === 'hmrc' ? 'HMRC/Bank of England rates' : report.jurisdiction === 'cra' ? 'Bank of Canada daily rates' : 'Reserve Bank of Australia rates'}.
                 </div>
               </div>
             )}

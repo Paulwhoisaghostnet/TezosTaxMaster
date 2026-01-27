@@ -35,6 +35,7 @@ export interface TxEvent {
   quoteUsd?: number; // XTZ price in USD at transaction time
   quoteGbp?: number; // XTZ price in GBP at transaction time
   quoteCad?: number; // XTZ price in CAD at transaction time
+  quoteAud?: number; // XTZ price in AUD at transaction time
   // Mint detection (token was minted/created, not purchased)
   isMint?: boolean; // True if token was received with no from address (minted)
   // Smart classification (set during post-processing)
@@ -71,14 +72,17 @@ export interface TaxReport {
   id: string;
   createdAt: string;
   year: number;
-  jurisdiction: 'irs' | 'hmrc' | 'cra';
+  jurisdiction: 'irs' | 'hmrc' | 'cra' | 'ato';
   walletAddresses: string[];
   summary: {
     totalDisposals: number;
     totalProceeds: number;
     totalCostBasis: number;
     totalGain: number;
-    taxableGain?: number; // For CRA: 50% of capital gains only
+    taxableGain?: number; // For CRA: 50% inclusion, For ATO: after 50% CGT discount
+    longTermGain?: number; // ATO: gains on assets held > 12 months
+    shortTermGain?: number; // ATO: gains on assets held <= 12 months
+    cgtDiscount?: number; // ATO: 50% discount amount on long-term gains
     totalIncome?: number; // Total income from all sources
     confirmedIncome?: number; // All income is confirmed
     stakingIncome?: number; // Baking/staking rewards

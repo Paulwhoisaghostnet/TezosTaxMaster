@@ -257,6 +257,7 @@ export function buildEvents(
       quoteUsd: op.quote?.usd,
       quoteGbp: op.quote?.usd ? convertFromUSD(op.quote.usd, op.timestamp, 'gbp') : undefined,
       quoteCad: op.quote?.usd ? convertFromUSD(op.quote.usd, op.timestamp, 'cad') : undefined,
+      quoteAud: op.quote?.usd ? convertFromUSD(op.quote.usd, op.timestamp, 'aud') : undefined,
     });
   }
   
@@ -324,6 +325,7 @@ export function buildEvents(
       quoteUsd: tr.quote?.usd,
       quoteGbp: tr.quote?.usd ? convertFromUSD(tr.quote.usd, tr.timestamp, 'gbp') : undefined,
       quoteCad: tr.quote?.usd ? convertFromUSD(tr.quote.usd, tr.timestamp, 'cad') : undefined,
+      quoteAud: tr.quote?.usd ? convertFromUSD(tr.quote.usd, tr.timestamp, 'aud') : undefined,
     });
   }
   

@@ -91,15 +91,35 @@ export interface CRADisposal {
   note: string;
 }
 
+export interface ATODisposal {
+  timestamp: string;
+  asset: string;
+  qtyDisposed: number;
+  fmvAudPerXtz: number;
+  proceedsAud: number;
+  costBasisAud: number;
+  gainAud: number;
+  holdingPeriodDays: number;
+  isLongTerm: boolean; // Held > 12 months
+  cgtDiscountAud: number; // 50% discount for long-term holdings
+  taxableGainAud: number; // After CGT discount
+  opHash: string;
+  classification?: string;
+  note: string;
+}
+
 export interface TaxCalculationResult {
   ledger: IRSLedgerEntry[];
-  disposals: IRSDisposal[] | HMRCDisposal[] | CRADisposal[];
+  disposals: IRSDisposal[] | HMRCDisposal[] | CRADisposal[] | ATODisposal[];
   summary: {
     totalDisposals: number;
     totalProceeds: number;
     totalCostBasis: number;
     totalGain: number;
-    taxableGain?: number; // For CRA: 50% inclusion rate on capital gains only
+    taxableGain?: number; // For CRA: 50% inclusion, For ATO: after CGT discount
+    longTermGain?: number; // ATO: gains on assets held > 12 months (before discount)
+    shortTermGain?: number; // ATO: gains on assets held <= 12 months
+    cgtDiscount?: number; // ATO: total 50% discount amount
     totalIncome?: number; // Total income from all sources
     confirmedIncome?: number; // All income is confirmed (no review needed)
     stakingIncome?: number; // Baking/staking rewards
@@ -1036,6 +1056,391 @@ export function calculateCRA(
   };
 }
 
+/**
+ * ATO (Australian Taxation Office) FIFO calculation
+ * - Uses FIFO (First In First Out) method
+ * - 50% CGT discount for assets held > 12 months (individuals)
+ * - Staking rewards are ordinary income at FMV when received
+ * - Personal use exemption may apply for transactions < $10,000 AUD for personal goods
+ * 
+ * Reference: https://www.ato.gov.au/individuals-and-families/investments-and-assets/crypto-asset-investments
+ */
+export function calculateATO(
+  events: TxEvent[],
+  onProgress?: (progress: number, message: string) => void
+): TaxCalculationResult {
+  const ledger: IRSLedgerEntry[] = [];
+  const disposals: ATODisposal[] = [];
+  const incomeEvents: TaxCalculationResult['incomeEvents'] = [];
+  
+  // FIFO lots for XTZ - track acquisition date for CGT discount
+  interface ATOFifoLot {
+    acquiredTs: string;
+    qty: number;
+    basisPer: number;
+  }
+  const xtzLots: ATOFifoLot[] = [];
+  
+  // Token/NFT lot tracking
+  const tokenLots: Map<string, ATOFifoLot[]> = new Map();
+  
+  // Helper to get token value from related XTZ in same operation
+  const getTokenValueFromRelatedXtz = (event: TxEvent, allEvents: TxEvent[]): number => {
+    const relatedEvents = allEvents.filter(e => e.opHash === event.opHash && e.id !== event.id);
+    const xtzEvent = relatedEvents.find(e => e.asset === 'XTZ');
+    if (xtzEvent) {
+      return xtzEvent.quantity * (xtzEvent.quoteAud || xtzEvent.quoteUsd || 0);
+    }
+    return 0;
+  };
+  
+  // Helper to calculate holding period in days
+  const getHoldingPeriodDays = (acquiredTs: string, disposedTs: string): number => {
+    const acquired = new Date(acquiredTs);
+    const disposed = new Date(disposedTs);
+    return Math.floor((disposed.getTime() - acquired.getTime()) / (1000 * 60 * 60 * 24));
+  };
+  
+  let totalProceeds = 0;
+  let totalCost = 0;
+  let totalGain = 0;
+  let longTermGain = 0;
+  let shortTermGain = 0;
+  let totalCgtDiscount = 0;
+  
+  // Process events chronologically
+  const sortedEvents = [...events].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  
+  let processedCount = 0;
+  for (const e of sortedEvents) {
+    // Use AUD price (convert from USD if not available)
+    const fmvAud = e.asset === 'XTZ' 
+      ? (e.quoteAud || (e.quoteUsd ? e.quoteUsd * 1.55 : 0)) // Fallback conversion
+      : 0;
+    
+    let irsCategory = 'review';
+    let taxable = 'unknown';
+    
+    if (e.asset === 'XTZ') {
+      // Handle based on classification
+      if (e.classification === 'self_transfer') {
+        irsCategory = 'self_transfer';
+        taxable = 'no';
+      } else if (e.classification === 'cex_deposit') {
+        irsCategory = 'cex_deposit';
+        taxable = 'no';
+      } else if (e.classification === 'cex_withdrawal') {
+        irsCategory = 'cex_withdrawal';
+        taxable = 'no';
+        xtzLots.push({
+          acquiredTs: e.timestamp,
+          qty: e.quantity,
+          basisPer: fmvAud,
+        });
+      } else if (e.classification === 'baking_reward') {
+        irsCategory = 'ordinary_income';
+        taxable = 'yes';
+        xtzLots.push({
+          acquiredTs: e.timestamp,
+          qty: e.quantity,
+          basisPer: fmvAud,
+        });
+        incomeEvents.push({
+          timestamp: e.timestamp,
+          type: 'Staking Reward (Assessable Income)',
+          quantity: e.quantity,
+          fmv: e.quantity * fmvAud,
+          note: e.classificationNote || 'ATO: Assessable income at market value when received. Report as other income.',
+        });
+      } else if (e.classification === 'creator_sale' && e.direction === 'in') {
+        irsCategory = 'creator_income';
+        taxable = 'yes';
+        xtzLots.push({
+          acquiredTs: e.timestamp,
+          qty: e.quantity,
+          basisPer: fmvAud,
+        });
+        incomeEvents.push({
+          timestamp: e.timestamp,
+          type: 'Creator Sale (Business Income)',
+          quantity: e.quantity,
+          fmv: e.quantity * fmvAud,
+          note: e.classificationNote || 'ATO: Business income from sale of self-created token. May be assessable as business income.',
+        });
+      } else if (e.classification === 'received_income' && e.direction === 'in') {
+        irsCategory = 'ordinary_income';
+        taxable = 'yes';
+        xtzLots.push({
+          acquiredTs: e.timestamp,
+          qty: e.quantity,
+          basisPer: fmvAud,
+        });
+        incomeEvents.push({
+          timestamp: e.timestamp,
+          type: 'Received Income (Assessable Income)',
+          quantity: e.quantity,
+          fmv: e.quantity * fmvAud,
+          note: e.classificationNote || 'ATO: Crypto received from external address - assessable as ordinary income at market value.',
+        });
+      } else if (e.direction === 'in' && e.quantity > 0) {
+        irsCategory = e.classification === 'swap' ? 'swap_acquisition' : 'acquisition';
+        taxable = e.classification === 'swap' ? 'no' : 'maybe';
+        xtzLots.push({
+          acquiredTs: e.timestamp,
+          qty: e.quantity,
+          basisPer: fmvAud,
+        });
+      } else if (isTaxableDisposal(e)) {
+        // Taxable disposal - CGT event
+        irsCategory = e.classification === 'likely_gift' 
+          ? 'gift_disposal' 
+          : e.classification === 'swap'
+            ? 'swap_disposal'
+            : 'cgt_disposal';
+        taxable = 'yes';
+        
+        let qtyToDispose = e.quantity;
+        const proceeds = qtyToDispose * fmvAud;
+        let basis = 0;
+        let weightedAcquiredDate = new Date(e.timestamp); // Default to same day
+        let totalQtyMatched = 0;
+        
+        // FIFO matching
+        while (qtyToDispose > 1e-12 && xtzLots.length > 0) {
+          const lot = xtzLots[0];
+          const take = Math.min(qtyToDispose, lot.qty);
+          basis += take * lot.basisPer;
+          
+          // Track weighted acquisition date for CGT discount
+          if (totalQtyMatched === 0) {
+            weightedAcquiredDate = new Date(lot.acquiredTs);
+          }
+          totalQtyMatched += take;
+          
+          lot.qty -= take;
+          qtyToDispose -= take;
+          
+          if (lot.qty <= 1e-12) {
+            xtzLots.shift();
+          }
+        }
+        
+        const gain = proceeds - basis;
+        const holdingDays = getHoldingPeriodDays(weightedAcquiredDate.toISOString(), e.timestamp);
+        const isLongTerm = holdingDays > 365; // > 12 months
+        
+        // Apply 50% CGT discount for long-term holdings (individuals only)
+        let cgtDiscount = 0;
+        let taxableGain = gain;
+        
+        if (isLongTerm && gain > 0) {
+          cgtDiscount = gain * 0.5;
+          taxableGain = gain - cgtDiscount;
+          longTermGain += gain;
+          totalCgtDiscount += cgtDiscount;
+        } else if (gain > 0) {
+          shortTermGain += gain;
+        }
+        
+        totalProceeds += proceeds;
+        totalCost += basis;
+        totalGain += gain;
+        
+        disposals.push({
+          timestamp: e.timestamp,
+          asset: e.asset,
+          qtyDisposed: e.quantity,
+          fmvAudPerXtz: round(fmvAud, 8),
+          proceedsAud: round(proceeds, 8),
+          costBasisAud: round(basis, 8),
+          gainAud: round(gain, 8),
+          holdingPeriodDays: holdingDays,
+          isLongTerm,
+          cgtDiscountAud: round(cgtDiscount, 8),
+          taxableGainAud: round(taxableGain, 8),
+          opHash: e.opHash,
+          classification: e.classification,
+          note: isLongTerm 
+            ? '50% CGT discount applied (held > 12 months)'
+            : 'No CGT discount (held <= 12 months)',
+        });
+      }
+    } else {
+      // Token/NFT handling
+      const assetKey = e.asset;
+      
+      if (e.classification === 'self_transfer') {
+        irsCategory = 'self_transfer';
+        taxable = 'no';
+      } else if (e.direction === 'in') {
+        let costBasisAud = 0;
+        
+        if (e.classification === 'nft_purchase' || e.classification === 'swap') {
+          costBasisAud = getTokenValueFromRelatedXtz(e, sortedEvents);
+          irsCategory = 'nft_purchase';
+          taxable = 'no';
+        } else if (e.classification === 'token_received') {
+          costBasisAud = getTokenValueFromRelatedXtz(e, sortedEvents);
+          irsCategory = 'token_received';
+          taxable = 'no';
+        } else if (e.isMint) {
+          costBasisAud = 0;
+          irsCategory = 'token_mint';
+          taxable = 'no';
+        } else {
+          irsCategory = 'token_acquisition';
+          taxable = 'no';
+        }
+        
+        if (!tokenLots.has(assetKey)) {
+          tokenLots.set(assetKey, []);
+        }
+        tokenLots.get(assetKey)!.push({
+          acquiredTs: e.timestamp,
+          qty: e.quantity,
+          basisPer: e.quantity > 0 ? costBasisAud / e.quantity : 0,
+        });
+      } else if (e.direction === 'out') {
+        if (e.classification === 'creator_sale') {
+          irsCategory = 'creator_sale';
+          taxable = 'yes';
+        } else {
+          const proceeds = getTokenValueFromRelatedXtz(e, sortedEvents);
+          let basis = 0;
+          let qtyToDispose = e.quantity;
+          const lots = tokenLots.get(assetKey) || [];
+          let acquiredTs = e.timestamp;
+          
+          while (qtyToDispose > 1e-12 && lots.length > 0) {
+            const lot = lots[0];
+            const take = Math.min(qtyToDispose, lot.qty);
+            basis += take * lot.basisPer;
+            if (qtyToDispose === e.quantity) {
+              acquiredTs = lot.acquiredTs;
+            }
+            lot.qty -= take;
+            qtyToDispose -= take;
+            if (lot.qty <= 1e-12) {
+              lots.shift();
+            }
+          }
+          
+          const gain = proceeds - basis;
+          const holdingDays = getHoldingPeriodDays(acquiredTs, e.timestamp);
+          const isLongTerm = holdingDays > 365;
+          
+          let cgtDiscount = 0;
+          let taxableGain = gain;
+          
+          if (isLongTerm && gain > 0) {
+            cgtDiscount = gain * 0.5;
+            taxableGain = gain - cgtDiscount;
+            longTermGain += gain;
+            totalCgtDiscount += cgtDiscount;
+          } else if (gain > 0) {
+            shortTermGain += gain;
+          }
+          
+          if (e.classification === 'nft_sale') {
+            irsCategory = 'nft_sale';
+            taxable = 'yes';
+          } else if (e.classification === 'token_gift_out') {
+            irsCategory = 'token_gift';
+            taxable = 'yes';
+          } else {
+            irsCategory = 'token_disposal';
+            taxable = 'yes';
+          }
+          
+          if (proceeds > 0 || basis > 0) {
+            totalProceeds += proceeds;
+            totalCost += basis;
+            totalGain += gain;
+            
+            disposals.push({
+              timestamp: e.timestamp,
+              asset: e.asset,
+              qtyDisposed: e.quantity,
+              fmvAudPerXtz: 0,
+              proceedsAud: round(proceeds, 8),
+              costBasisAud: round(basis, 8),
+              gainAud: round(gain, 8),
+              holdingPeriodDays: holdingDays,
+              isLongTerm,
+              cgtDiscountAud: round(cgtDiscount, 8),
+              taxableGainAud: round(taxableGain, 8),
+              opHash: e.opHash,
+              classification: e.classification,
+              note: isLongTerm 
+                ? 'Token/NFT - 50% CGT discount applied'
+                : 'Token/NFT - no CGT discount',
+            });
+          }
+        }
+      }
+    }
+    
+    ledger.push({
+      timestamp: e.timestamp,
+      level: e.level,
+      opHash: e.opHash,
+      kind: e.kind,
+      direction: e.direction,
+      counterparty: e.counterparty,
+      asset: e.asset,
+      quantity: e.quantity,
+      feeXtz: e.feeXtz,
+      tags: e.tags,
+      confidence: e.confidence,
+      classification: e.classification,
+      classificationNote: e.classificationNote,
+      irsCategory,
+      irsTaxable: taxable,
+      xtzFmvUsd: 0,
+    });
+    
+    processedCount++;
+    onProgress?.((processedCount / sortedEvents.length) * 100, `Processing event ${processedCount}/${sortedEvents.length}`);
+  }
+  
+  // Calculate income totals
+  const stakingIncome = incomeEvents
+    .filter(e => e.type.includes('Staking'))
+    .reduce((sum, e) => sum + e.fmv, 0);
+  const creatorIncome = incomeEvents
+    .filter(e => e.type.includes('Creator'))
+    .reduce((sum, e) => sum + e.fmv, 0);
+  const receivedIncome = incomeEvents
+    .filter(e => e.type.includes('Received'))
+    .reduce((sum, e) => sum + e.fmv, 0);
+  const totalIncome = incomeEvents.reduce((sum, e) => sum + e.fmv, 0);
+  
+  // Taxable gain = total gain - CGT discount
+  const taxableGain = totalGain - totalCgtDiscount;
+  
+  return {
+    ledger,
+    disposals,
+    incomeEvents,
+    summary: {
+      totalDisposals: disposals.length,
+      totalProceeds: round(totalProceeds, 2),
+      totalCostBasis: round(totalCost, 2),
+      totalGain: round(totalGain, 2),
+      taxableGain: round(taxableGain, 2), // After 50% CGT discount
+      longTermGain: round(longTermGain, 2),
+      shortTermGain: round(shortTermGain, 2),
+      cgtDiscount: round(totalCgtDiscount, 2),
+      totalIncome: round(totalIncome, 2),
+      confirmedIncome: round(totalIncome, 2),
+      stakingIncome: round(stakingIncome, 2),
+      creatorIncome: round(creatorIncome, 2),
+      receivedIncome: round(receivedIncome, 2),
+      currency: 'AUD',
+    },
+  };
+}
+
 function round(n: number, decimals: number): number {
   const factor = Math.pow(10, decimals);
   return Math.round(n * factor) / factor;
@@ -1045,16 +1450,18 @@ function round(n: number, decimals: number): number {
  * Generate CSV content from disposals
  */
 export function disposalsToCSV(
-  disposals: IRSDisposal[] | HMRCDisposal[] | CRADisposal[],
-  jurisdiction: 'irs' | 'hmrc' | 'cra'
+  disposals: IRSDisposal[] | HMRCDisposal[] | CRADisposal[] | ATODisposal[],
+  jurisdiction: 'irs' | 'hmrc' | 'cra' | 'ato'
 ): string {
   if (disposals.length === 0) {
     if (jurisdiction === 'irs') {
       return 'timestamp,asset,qty_disposed,fmv_usd_per_xtz,proceeds_usd,basis_usd,gain_usd,fee_xtz,op_hash,classification,note\n';
     } else if (jurisdiction === 'hmrc') {
       return 'timestamp,asset,qty_disposed,fmv_gbp_per_xtz,proceeds_gbp,allowable_cost_gbp,gain_gbp,op_hash,classification,note\n';
-    } else {
+    } else if (jurisdiction === 'cra') {
       return 'timestamp,asset,qty_disposed,fmv_cad_per_xtz,proceeds_cad,acb_cad,gain_cad,taxable_gain_cad,acb_per_unit,op_hash,classification,note\n';
+    } else {
+      return 'timestamp,asset,qty_disposed,fmv_aud_per_xtz,proceeds_aud,cost_basis_aud,gain_aud,holding_days,is_long_term,cgt_discount_aud,taxable_gain_aud,op_hash,classification,note\n';
     }
   }
   
@@ -1091,7 +1498,7 @@ export function disposalsToCSV(
       `"${d.note}"`,
     ].join(','));
     return [headers.join(','), ...rows].join('\n');
-  } else {
+  } else if (jurisdiction === 'cra') {
     const craDisposals = disposals as CRADisposal[];
     const headers = ['timestamp', 'asset', 'qty_disposed', 'fmv_cad_per_xtz', 'proceeds_cad', 'acb_cad', 'gain_cad', 'taxable_gain_cad', 'acb_per_unit', 'op_hash', 'classification', 'note'];
     const rows = craDisposals.map(d => [
@@ -1104,6 +1511,27 @@ export function disposalsToCSV(
       d.gainCad,
       d.taxableGainCad,
       d.acbPerUnit,
+      d.opHash,
+      d.classification || '',
+      `"${d.note}"`,
+    ].join(','));
+    return [headers.join(','), ...rows].join('\n');
+  } else {
+    // ATO
+    const atoDisposals = disposals as ATODisposal[];
+    const headers = ['timestamp', 'asset', 'qty_disposed', 'fmv_aud_per_xtz', 'proceeds_aud', 'cost_basis_aud', 'gain_aud', 'holding_days', 'is_long_term', 'cgt_discount_aud', 'taxable_gain_aud', 'op_hash', 'classification', 'note'];
+    const rows = atoDisposals.map(d => [
+      d.timestamp,
+      d.asset,
+      d.qtyDisposed,
+      d.fmvAudPerXtz,
+      d.proceedsAud,
+      d.costBasisAud,
+      d.gainAud,
+      d.holdingPeriodDays,
+      d.isLongTerm ? 'Yes' : 'No',
+      d.cgtDiscountAud,
+      d.taxableGainAud,
       d.opHash,
       d.classification || '',
       `"${d.note}"`,
