@@ -1,15 +1,18 @@
 /**
- * Tax calculation engines for IRS and HMRC
+ * Tax calculation engines for IRS, HMRC, and CRA
  * 
  * IRS: FIFO cost basis matching (Notice 2014-21, Rev. Rul. 2019-24, 2023-14)
  * HMRC: Same-day, 30-day, then Section 104 pooling (CRYPTO22200 series)
+ * CRA: Adjusted Cost Base (ACB) with 50% inclusion rate
  * 
  * Uses smart classification to properly handle:
  * - Self-transfers (not taxable)
  * - CEX deposits (not taxable until sold)
  * - Baking rewards (ordinary income)
+ * - Received XTZ from external addresses (ordinary income)
  * - Swaps (both legs taxable)
  * - Gifts (taxable disposal)
+ * - NFT/token purchases and sales (capital gains)
  */
 
 import { TxEvent } from './db';
