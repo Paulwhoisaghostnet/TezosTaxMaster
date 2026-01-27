@@ -1,65 +1,187 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useCallback } from 'react';
+import { Shield, Github, ExternalLink } from 'lucide-react';
+import WalletManager from '@/components/WalletManager';
+import TaxReportGenerator from '@/components/TaxReportGenerator';
+import ReportHistory from '@/components/ReportHistory';
+import DataManager from '@/components/DataManager';
+import { Wallet } from '@/lib/db';
 
 export default function Home() {
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleWalletsChange = useCallback((newWallets: Wallet[]) => {
+    setWallets(newWallets);
+  }, []);
+
+  const handleDataChange = useCallback(() => {
+    setRefreshKey(k => k + 1);
+  }, []);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                <span className="text-white font-bold text-lg">T</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">TaxMaster</h1>
+                <p className="text-xs text-gray-500">Tezos Tax Calculator</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href="https://github.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="GitHub"
+              >
+                <Github className="w-5 h-5" />
+              </a>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </header>
+
+      {/* Hero */}
+      <section className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-12 sm:py-16">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="max-w-2xl">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              Calculate Your Tezos Taxes
+            </h2>
+            <p className="text-blue-100 text-lg mb-6">
+              Free, privacy-first tax calculator for Tezos. Supports IRS (US) and HMRC (UK) rules. 
+              All data stays in your browser — nothing is sent to any server.
+            </p>
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full">
+                <Shield className="w-4 h-4" />
+                <span>100% Local Storage</span>
+              </div>
+              <a
+                href="https://www.irs.gov/pub/irs-drop/n-14-21.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full hover:bg-white/20 transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>IRS Guidance</span>
+              </a>
+              <a
+                href="https://www.gov.uk/hmrc-internal-manuals/cryptoassets-manual"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full hover:bg-white/20 transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>HMRC Manual</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Content */}
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Left Column */}
+          <div className="space-y-6">
+            <WalletManager 
+              key={`wallets-${refreshKey}`}
+              onWalletsChange={handleWalletsChange} 
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <TaxReportGenerator wallets={wallets} />
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-6">
+            <ReportHistory key={`history-${refreshKey}`} />
+            <DataManager onDataChange={handleDataChange} />
+
+            {/* Info Cards */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">How It Works</h3>
+              <ol className="space-y-3 text-sm text-gray-600">
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-medium">1</span>
+                  <span>Add your Tezos wallet address(es)</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-medium">2</span>
+                  <span>Sync to download your transaction history from TzKT</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-medium">3</span>
+                  <span>Choose tax year and jurisdiction (IRS or HMRC)</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-medium">4</span>
+                  <span>Generate report and download CSV files</span>
+                </li>
+              </ol>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+              <h3 className="font-semibold text-amber-800 mb-2">Disclaimer</h3>
+              <p className="text-sm text-amber-700">
+                This tool is a calculation helper, not tax advice. Tax laws are complex and vary by situation. 
+                Always consult a qualified tax professional for your specific circumstances. 
+                The developers are not responsible for any errors or omissions.
+              </p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+              <h3 className="font-semibold text-blue-800 mb-2">Tax Rules Implemented</h3>
+              <div className="text-sm text-blue-700 space-y-2">
+                <div>
+                  <span className="font-medium">IRS (United States):</span> FIFO cost basis matching per Notice 2014-21, Rev. Rul. 2019-24, and Rev. Rul. 2023-14
+                </div>
+                <div>
+                  <span className="font-medium">HMRC (United Kingdom):</span> Same-day, 30-day, and Section 104 pool matching per CRYPTO22200 series
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200 py-8 mt-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
+            <p>
+              TaxMaster — Free and open source Tezos tax calculator
+            </p>
+            <div className="flex items-center gap-4">
+              <a
+                href="https://api.tzkt.io/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-gray-700 transition-colors"
+              >
+                Powered by TzKT
+              </a>
+              <span>·</span>
+              <a
+                href="https://www.coingecko.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-gray-700 transition-colors"
+              >
+                Prices by CoinGecko
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
