@@ -76,8 +76,8 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
     setProgress({ percent: 0, message: 'Loading events...' });
 
     try {
-      // Get events for the selected year
-      const events = await getEventsForYear(selectedWallets, year);
+      // Get events for the selected year (pass jurisdiction to handle UK tax year)
+      const events = await getEventsForYear(selectedWallets, year, jurisdiction);
       
       if (events.length === 0) {
         setError(`No transactions found for ${year}`);
