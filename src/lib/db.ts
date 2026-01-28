@@ -218,9 +218,23 @@ export async function getEventsForWallets(addresses: string[]): Promise<TxEvent[
   return allEvents.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 }
 
-export async function getEventsForYear(addresses: string[], year: number): Promise<TxEvent[]> {
-  const startIso = `${year}-01-01T00:00:00Z`;
-  const endIso = `${year + 1}-01-01T00:00:00Z`;
+export async function getEventsForYear(
+  addresses: string[], 
+  year: number,
+  jurisdiction?: 'irs' | 'hmrc' | 'cra' | 'ato'
+): Promise<TxEvent[]> {
+  let startIso: string;
+  let endIso: string;
+  
+  // UK tax year runs from April 6, YYYY to April 5, YYYY+1 (e.g., 2024 tax year = 6 April 2024 to 5 April 2025)
+  if (jurisdiction === 'hmrc') {
+    startIso = `${year}-04-06T00:00:00Z`;
+    endIso = `${year + 1}-04-06T00:00:00Z`;
+  } else {
+    // All other jurisdictions use calendar year (Jan 1 - Dec 31)
+    startIso = `${year}-01-01T00:00:00Z`;
+    endIso = `${year + 1}-01-01T00:00:00Z`;
+  }
   
   const allEvents = await getEventsForWallets(addresses);
   return allEvents.filter(e => e.timestamp >= startIso && e.timestamp < endIso);
