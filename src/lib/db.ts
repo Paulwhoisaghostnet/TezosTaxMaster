@@ -226,7 +226,7 @@ export async function getEventsForYear(
   let startIso: string;
   let endIso: string;
   
-  // UK tax year runs from April 6 to April 5 of the following year
+  // UK tax year runs from April 6, YYYY to April 5, YYYY+1 (e.g., 2024 tax year = 6 April 2024 to 5 April 2025)
   if (jurisdiction === 'hmrc') {
     startIso = `${year}-04-06T00:00:00Z`;
     endIso = `${year + 1}-04-06T00:00:00Z`;
