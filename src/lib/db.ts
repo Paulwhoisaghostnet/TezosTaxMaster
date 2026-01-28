@@ -230,8 +230,12 @@ export async function getEventsForYear(
   if (jurisdiction === 'hmrc') {
     startIso = `${year}-04-06T00:00:00Z`;
     endIso = `${year + 1}-04-06T00:00:00Z`;
+  } else if (jurisdiction === 'ato') {
+    // Australia tax year runs from July 1, YYYY to June 30, YYYY+1 (e.g., 2024 tax year = 1 July 2024 to 30 June 2025)
+    startIso = `${year}-07-01T00:00:00Z`;
+    endIso = `${year + 1}-07-01T00:00:00Z`;
   } else {
-    // All other jurisdictions use calendar year (Jan 1 - Dec 31)
+    // US (IRS) and Canada (CRA) use calendar year (Jan 1 - Dec 31)
     startIso = `${year}-01-01T00:00:00Z`;
     endIso = `${year + 1}-01-01T00:00:00Z`;
   }
