@@ -1,0 +1,1243 @@
+{
+  "wallet": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+  "ops": {
+    "gift_out_with_fee": {
+      "xtzOps": [
+        {
+          "id": 1524778713219072,
+          "timestamp": "2025-01-03T06:13:20Z",
+          "level": 7541564,
+          "hash": "oogRoUmxp3GvGaE6KDt5qZYQdPQGnHk5CVpkUtFh1gKqpLzFKqE",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "tz1cVRngZw42KZ42VQF2ZCy2CJSPNG3H7Cgt",
+            "alias": null
+          },
+          "initiator": null,
+          "amount": 100000000,
+          "bakerFee": 283,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        }
+      ],
+      "tokenOps": [],
+      "hash": "oogRoUmxp3GvGaE6KDt5qZYQdPQGnHk5CVpkUtFh1gKqpLzFKqE"
+    },
+    "primary_sale_batched": {
+      "xtzOps": [
+        {
+          "id": 1528219522039808,
+          "timestamp": "2025-01-05T04:28:00Z",
+          "level": 7558137,
+          "hash": "oo5vq6UTYsszM3m4H4Qe2DUKXwnzbhuC9v3nWYfnP46GduCQkkD",
+          "sender": {
+            "address": "tz1MEc68Yubb5QWksUg9GptouxLSgUrb31iY",
+            "alias": null
+          },
+          "target": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "initiator": null,
+          "amount": 5000000,
+          "bakerFee": 1270,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "fulfill_ask",
+            "value": {
+              "amount": "1",
+              "ask_id": "12088515",
+              "proxy_for": null,
+              "referrers": {},
+              "condition_extra": null
+            }
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 1528219523088384,
+          "timestamp": "2025-01-05T04:28:00Z",
+          "level": 7558137,
+          "hash": "oo5vq6UTYsszM3m4H4Qe2DUKXwnzbhuC9v3nWYfnP46GduCQkkD",
+          "sender": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "target": {
+            "address": "KT1VQuAMRm11PRvWqHYo6DbWe1qrDU3HP2yS",
+            "alias": null
+          },
+          "initiator": {
+            "address": "tz1MEc68Yubb5QWksUg9GptouxLSgUrb31iY"
+          },
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 16750,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "transfer",
+            "value": [
+              {
+                "txs": [
+                  {
+                    "to_": "tz1MEc68Yubb5QWksUg9GptouxLSgUrb31iY",
+                    "amount": "1",
+                    "token_id": "1"
+                  }
+                ],
+                "from_": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+              }
+            ]
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 0
+        },
+        {
+          "id": 1528219524136960,
+          "timestamp": "2025-01-05T04:28:00Z",
+          "level": 7558137,
+          "hash": "oo5vq6UTYsszM3m4H4Qe2DUKXwnzbhuC9v3nWYfnP46GduCQkkD",
+          "sender": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "target": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "initiator": {
+            "address": "tz1MEc68Yubb5QWksUg9GptouxLSgUrb31iY"
+          },
+          "amount": 210000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 1
+        },
+        {
+          "id": 1528219525185536,
+          "timestamp": "2025-01-05T04:28:00Z",
+          "level": 7558137,
+          "hash": "oo5vq6UTYsszM3m4H4Qe2DUKXwnzbhuC9v3nWYfnP46GduCQkkD",
+          "sender": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "target": {
+            "address": "tz1hFhmqKNB7hnHVHAFSk9wNqm7K9GgF2GDN",
+            "alias": "objkt.com Treasury"
+          },
+          "initiator": {
+            "address": "tz1MEc68Yubb5QWksUg9GptouxLSgUrb31iY"
+          },
+          "amount": 250000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 2
+        },
+        {
+          "id": 1528219526234112,
+          "timestamp": "2025-01-05T04:28:00Z",
+          "level": 7558137,
+          "hash": "oo5vq6UTYsszM3m4H4Qe2DUKXwnzbhuC9v3nWYfnP46GduCQkkD",
+          "sender": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "target": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "initiator": {
+            "address": "tz1MEc68Yubb5QWksUg9GptouxLSgUrb31iY"
+          },
+          "amount": 4540000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 3
+        }
+      ],
+      "tokenOps": [
+        {
+          "id": 1528219523088386,
+          "timestamp": "2025-01-05T04:28:00Z",
+          "level": 7558137,
+          "transactionId": 1528219523088384,
+          "transactionHash": "oo5vq6UTYsszM3m4H4Qe2DUKXwnzbhuC9v3nWYfnP46GduCQkkD",
+          "from": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "to": {
+            "address": "tz1MEc68Yubb5QWksUg9GptouxLSgUrb31iY"
+          },
+          "amount": "1",
+          "token": {
+            "contract": {
+              "address": "KT1VQuAMRm11PRvWqHYo6DbWe1qrDU3HP2yS"
+            },
+            "tokenId": "1",
+            "standard": "fa2",
+            "metadata": {
+              "symbol": "OBJKTCOM",
+              "name": "Flying Gull",
+              "decimals": "0",
+              "creators": [
+                "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+              ]
+            }
+          },
+          "quote": {
+            "usd": 1.0
+          }
+        }
+      ],
+      "hash": "oo5vq6UTYsszM3m4H4Qe2DUKXwnzbhuC9v3nWYfnP46GduCQkkD"
+    },
+    "nft_purchase": {
+      "xtzOps": [
+        {
+          "id": 1527967321686016,
+          "timestamp": "2025-01-05T01:02:45Z",
+          "level": 7556910,
+          "hash": "opJk5oMccW1C5e6jt7RxULwwPsxwv5JS3hewWK6CfjRCCx2YuTC",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "initiator": null,
+          "amount": 25000000,
+          "bakerFee": 1412,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "fulfill_ask",
+            "value": {
+              "amount": "1",
+              "ask_id": "12027053",
+              "proxy_for": null,
+              "referrers": {},
+              "condition_extra": null
+            }
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 1527967322734592,
+          "timestamp": "2025-01-05T01:02:45Z",
+          "level": 7556910,
+          "hash": "opJk5oMccW1C5e6jt7RxULwwPsxwv5JS3hewWK6CfjRCCx2YuTC",
+          "sender": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "target": {
+            "address": "KT19myNw2L5f7a9qnH2w4cedN64DcaXbUzSB",
+            "alias": null
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 16750,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "transfer",
+            "value": [
+              {
+                "txs": [
+                  {
+                    "to_": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+                    "amount": "1",
+                    "token_id": "2"
+                  }
+                ],
+                "from_": "tz1QXGY9z6RWC6Toy88ixFfsXFKwEN9q5khd"
+              }
+            ]
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 0
+        },
+        {
+          "id": 1527967323783168,
+          "timestamp": "2025-01-05T01:02:45Z",
+          "level": 7556910,
+          "hash": "opJk5oMccW1C5e6jt7RxULwwPsxwv5JS3hewWK6CfjRCCx2YuTC",
+          "sender": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "target": {
+            "address": "tz1QXGY9z6RWC6Toy88ixFfsXFKwEN9q5khd",
+            "alias": "tamasantalart"
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 3750000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 1
+        },
+        {
+          "id": 1527967324831744,
+          "timestamp": "2025-01-05T01:02:45Z",
+          "level": 7556910,
+          "hash": "opJk5oMccW1C5e6jt7RxULwwPsxwv5JS3hewWK6CfjRCCx2YuTC",
+          "sender": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "target": {
+            "address": "tz1hFhmqKNB7hnHVHAFSk9wNqm7K9GgF2GDN",
+            "alias": "objkt.com Treasury"
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 1250000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 2
+        },
+        {
+          "id": 1527967325880320,
+          "timestamp": "2025-01-05T01:02:45Z",
+          "level": 7556910,
+          "hash": "opJk5oMccW1C5e6jt7RxULwwPsxwv5JS3hewWK6CfjRCCx2YuTC",
+          "sender": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "target": {
+            "address": "tz1QXGY9z6RWC6Toy88ixFfsXFKwEN9q5khd",
+            "alias": "tamasantalart"
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 20000000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 3
+        }
+      ],
+      "tokenOps": [
+        {
+          "id": 1527967322734594,
+          "timestamp": "2025-01-05T01:02:45Z",
+          "level": 7556910,
+          "transactionId": 1527967322734592,
+          "transactionHash": "opJk5oMccW1C5e6jt7RxULwwPsxwv5JS3hewWK6CfjRCCx2YuTC",
+          "from": {
+            "address": "tz1QXGY9z6RWC6Toy88ixFfsXFKwEN9q5khd"
+          },
+          "to": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": "1",
+          "token": {
+            "contract": {
+              "address": "KT19myNw2L5f7a9qnH2w4cedN64DcaXbUzSB"
+            },
+            "tokenId": "2",
+            "standard": "fa2",
+            "metadata": {
+              "symbol": "OBJKTCOM",
+              "name": "l'art pour l'aide",
+              "decimals": "0",
+              "creators": [
+                "tz1QXGY9z6RWC6Toy88ixFfsXFKwEN9q5khd"
+              ]
+            }
+          },
+          "quote": {
+            "usd": 1.0
+          }
+        }
+      ],
+      "hash": "opJk5oMccW1C5e6jt7RxULwwPsxwv5JS3hewWK6CfjRCCx2YuTC"
+    },
+    "baker_reward": {
+      "xtzOps": [
+        {
+          "id": 1525612285001728,
+          "timestamp": "2025-01-03T17:12:40Z",
+          "level": 7545496,
+          "hash": "oohKVgEmFb46v4ViokdZywjvUmoeuAwCo8LzdmFgQACfSv3v49C",
+          "sender": {
+            "address": "tz1cyUSeLA9Zpf2yGncQFFFNpMBgkrvgz7KQ",
+            "alias": "Zir0h's bakery payouts"
+          },
+          "target": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "initiator": null,
+          "amount": 97820,
+          "bakerFee": 278,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        }
+      ],
+      "tokenOps": [],
+      "hash": "oohKVgEmFb46v4ViokdZywjvUmoeuAwCo8LzdmFgQACfSv3v49C"
+    },
+    "royalty": {
+      "xtzOps": [
+        {
+          "id": 1526287860498432,
+          "timestamp": "2025-01-04T02:18:30Z",
+          "level": 7548750,
+          "hash": "opSLgMSWeJPt2qStPPD5rmwq8naqtRTSoR3RqKGPNfd1xbhwtr8",
+          "sender": {
+            "address": "KT1Xjap1TwmDR1d8yEd8ErkraAj2mbdMrPZY",
+            "alias": "objkt.com Marketplace"
+          },
+          "target": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "initiator": {
+            "address": "tz1iFKmEXhBZwNHXqttEF5gnHRNfrCxYT5HK"
+          },
+          "amount": 475000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 2
+        }
+      ],
+      "tokenOps": [],
+      "hash": "opSLgMSWeJPt2qStPPD5rmwq8naqtRTSoR3RqKGPNfd1xbhwtr8"
+    },
+    "auction_bid": {
+      "xtzOps": [
+        {
+          "id": 1684448886128640,
+          "timestamp": "2025-03-19T00:07:40Z",
+          "level": 8304064,
+          "hash": "oojNoKPeab3cDTpP9Yn3nh7smh8ifWmh5buE66KXGYUaAmK8uNp",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1TjnZYs5CGLbmV6yuW169P8Pnr9BiVwwjz",
+            "alias": "wXTZ objkt.com"
+          },
+          "initiator": null,
+          "amount": 11110000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "wrap",
+            "value": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 1684448887177216,
+          "timestamp": "2025-03-19T00:07:40Z",
+          "level": 8304064,
+          "hash": "oojNoKPeab3cDTpP9Yn3nh7smh8ifWmh5buE66KXGYUaAmK8uNp",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1TjnZYs5CGLbmV6yuW169P8Pnr9BiVwwjz",
+            "alias": "wXTZ objkt.com"
+          },
+          "initiator": null,
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "approve",
+            "value": {
+              "value": "0",
+              "spender": "KT18iSHoRW1iogamADWwQSDoZa3QkN4izkqj"
+            }
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 1684448888225792,
+          "timestamp": "2025-03-19T00:07:40Z",
+          "level": 8304064,
+          "hash": "oojNoKPeab3cDTpP9Yn3nh7smh8ifWmh5buE66KXGYUaAmK8uNp",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1TjnZYs5CGLbmV6yuW169P8Pnr9BiVwwjz",
+            "alias": "wXTZ objkt.com"
+          },
+          "initiator": null,
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "approve",
+            "value": {
+              "value": "30000000",
+              "spender": "KT18iSHoRW1iogamADWwQSDoZa3QkN4izkqj"
+            }
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 1684448889274368,
+          "timestamp": "2025-03-19T00:07:40Z",
+          "level": 8304064,
+          "hash": "oojNoKPeab3cDTpP9Yn3nh7smh8ifWmh5buE66KXGYUaAmK8uNp",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT18iSHoRW1iogamADWwQSDoZa3QkN4izkqj",
+            "alias": "objkt.com English Auctions"
+          },
+          "initiator": null,
+          "amount": 0,
+          "bakerFee": 2319,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "bid",
+            "value": {
+              "amount": "30000000",
+              "referrers": {},
+              "auction_id": "2021023",
+              "condition_extra": null
+            }
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 1684448890322944,
+          "timestamp": "2025-03-19T00:07:40Z",
+          "level": 8304064,
+          "hash": "oojNoKPeab3cDTpP9Yn3nh7smh8ifWmh5buE66KXGYUaAmK8uNp",
+          "sender": {
+            "address": "KT18iSHoRW1iogamADWwQSDoZa3QkN4izkqj",
+            "alias": "objkt.com English Auctions"
+          },
+          "target": {
+            "address": "KT1TjnZYs5CGLbmV6yuW169P8Pnr9BiVwwjz",
+            "alias": "wXTZ objkt.com"
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "transfer",
+            "value": {
+              "to": "KT18iSHoRW1iogamADWwQSDoZa3QkN4izkqj",
+              "from": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+              "value": "30000000"
+            }
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 0
+        },
+        {
+          "id": 1684448891371520,
+          "timestamp": "2025-03-19T00:07:40Z",
+          "level": 8304064,
+          "hash": "oojNoKPeab3cDTpP9Yn3nh7smh8ifWmh5buE66KXGYUaAmK8uNp",
+          "sender": {
+            "address": "KT18iSHoRW1iogamADWwQSDoZa3QkN4izkqj",
+            "alias": "objkt.com English Auctions"
+          },
+          "target": {
+            "address": "KT1TjnZYs5CGLbmV6yuW169P8Pnr9BiVwwjz",
+            "alias": "wXTZ objkt.com"
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "transfer",
+            "value": {
+              "to": "tz1aACaaDefdyjVduoFyUi9Rhde6nsmhHunw",
+              "from": "KT18iSHoRW1iogamADWwQSDoZa3QkN4izkqj",
+              "value": "26220000"
+            }
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 1
+        }
+      ],
+      "tokenOps": [
+        {
+          "id": 1684448886128641,
+          "timestamp": "2025-03-19T00:07:40Z",
+          "level": 8304064,
+          "transactionId": 1684448886128640,
+          "transactionHash": "oojNoKPeab3cDTpP9Yn3nh7smh8ifWmh5buE66KXGYUaAmK8uNp",
+          "from": null,
+          "to": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": "11110000",
+          "token": {
+            "contract": {
+              "address": "KT1TjnZYs5CGLbmV6yuW169P8Pnr9BiVwwjz"
+            },
+            "tokenId": "0",
+            "standard": "fa1.2",
+            "metadata": {
+              "symbol": "oXTZ",
+              "name": "objkt.com wrapped Tezos",
+              "decimals": "6",
+              "creators": null
+            }
+          },
+          "quote": {
+            "usd": 1.0
+          }
+        },
+        {
+          "id": 1684448890322945,
+          "timestamp": "2025-03-19T00:07:40Z",
+          "level": 8304064,
+          "transactionId": 1684448890322944,
+          "transactionHash": "oojNoKPeab3cDTpP9Yn3nh7smh8ifWmh5buE66KXGYUaAmK8uNp",
+          "from": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "to": {
+            "address": "KT18iSHoRW1iogamADWwQSDoZa3QkN4izkqj"
+          },
+          "amount": "30000000",
+          "token": {
+            "contract": {
+              "address": "KT1TjnZYs5CGLbmV6yuW169P8Pnr9BiVwwjz"
+            },
+            "tokenId": "0",
+            "standard": "fa1.2",
+            "metadata": {
+              "symbol": "oXTZ",
+              "name": "objkt.com wrapped Tezos",
+              "decimals": "6",
+              "creators": null
+            }
+          },
+          "quote": {
+            "usd": 1.0
+          }
+        }
+      ],
+      "hash": "oojNoKPeab3cDTpP9Yn3nh7smh8ifWmh5buE66KXGYUaAmK8uNp"
+    },
+    "offer_escrow": {
+      "xtzOps": [
+        {
+          "id": 1545956323491840,
+          "timestamp": "2025-01-15T00:33:55Z",
+          "level": 7642145,
+          "hash": "ooxeWssH7Tx1Vsjp8LPEJPbPVcsC52FZQJXTRBkjH7isJY7SC1j",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "initiator": null,
+          "amount": 3330000,
+          "bakerFee": 727,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "offer",
+            "value": {
+              "token": {
+                "address": "KT1PyckPktCsksurkLCMRbksWc6wyfvTgS1P",
+                "token_id": "18"
+              },
+              "amount": "3330000",
+              "shares": {
+                "tz1Up3Uyj6PR3AkdsaXouhhetS3VdaTkW2Ro": "2500"
+              },
+              "target": null,
+              "currency": {
+                "tez": {}
+              },
+              "condition": null,
+              "proxy_for": null,
+              "referrers": {},
+              "expiry_time": "2025-02-14T00:33:30Z"
+            }
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        }
+      ],
+      "tokenOps": [],
+      "hash": "ooxeWssH7Tx1Vsjp8LPEJPbPVcsC52FZQJXTRBkjH7isJY7SC1j"
+    },
+    "escrow_refund": {
+      "xtzOps": [
+        {
+          "id": 2317421400555520,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "initiator": null,
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "retract_offer",
+            "value": "12068709"
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 2317421401604096,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "target": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 25000000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 0
+        },
+        {
+          "id": 2317421402652672,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "initiator": null,
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "retract_offer",
+            "value": "12050849"
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 2317421403701248,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "target": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 5000000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 1
+        },
+        {
+          "id": 2317421404749824,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "initiator": null,
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "retract_offer",
+            "value": "12050848"
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 2317421405798400,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "target": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 5000000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 2
+        },
+        {
+          "id": 2317421406846976,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "initiator": null,
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "retract_offer",
+            "value": "12046417"
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 2317421407895552,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X",
+            "alias": null
+          },
+          "target": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 5000000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 3
+        },
+        {
+          "id": 2317421408944128,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1GbyoDi7H1sfXmimXpptZJuCdHMh66WS9u",
+            "alias": "FXHASH Marketplace v2"
+          },
+          "initiator": null,
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "offer_cancel",
+            "value": "79423"
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 2317421409992704,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "KT1GbyoDi7H1sfXmimXpptZJuCdHMh66WS9u",
+            "alias": "FXHASH Marketplace v2"
+          },
+          "target": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 4200000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 4
+        },
+        {
+          "id": 2317421411041280,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1GbyoDi7H1sfXmimXpptZJuCdHMh66WS9u",
+            "alias": "FXHASH Marketplace v2"
+          },
+          "initiator": null,
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "offer_cancel",
+            "value": "79421"
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 2317421412089856,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "KT1GbyoDi7H1sfXmimXpptZJuCdHMh66WS9u",
+            "alias": "FXHASH Marketplace v2"
+          },
+          "target": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 4200000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 5
+        },
+        {
+          "id": 2317421413138432,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1GbyoDi7H1sfXmimXpptZJuCdHMh66WS9u",
+            "alias": "FXHASH Marketplace v2"
+          },
+          "initiator": null,
+          "amount": 0,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "offer_cancel",
+            "value": "79419"
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 2317421414187008,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "KT1GbyoDi7H1sfXmimXpptZJuCdHMh66WS9u",
+            "alias": "FXHASH Marketplace v2"
+          },
+          "target": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 4200000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 6
+        },
+        {
+          "id": 2317421415235584,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "target": {
+            "address": "KT1GbyoDi7H1sfXmimXpptZJuCdHMh66WS9u",
+            "alias": "FXHASH Marketplace v2"
+          },
+          "initiator": null,
+          "amount": 0,
+          "bakerFee": 4185,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": {
+            "entrypoint": "offer_cancel",
+            "value": "79417"
+          },
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": null
+        },
+        {
+          "id": 2317421416284160,
+          "timestamp": "2026-01-08T04:19:52Z",
+          "level": 11462769,
+          "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS",
+          "sender": {
+            "address": "KT1GbyoDi7H1sfXmimXpptZJuCdHMh66WS9u",
+            "alias": "FXHASH Marketplace v2"
+          },
+          "target": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2",
+            "alias": "Paulwhoisaghost "
+          },
+          "initiator": {
+            "address": "tz1cgZ6PWKoER3gvW3jGKPHgBkRnpj8XzLm2"
+          },
+          "amount": 4200000,
+          "bakerFee": 0,
+          "storageFee": 0,
+          "allocationFee": 0,
+          "status": "applied",
+          "parameter": null,
+          "quote": {
+            "usd": 1.0
+          },
+          "nonce": 7
+        }
+      ],
+      "tokenOps": [],
+      "hash": "oonYrUJ3v8bhp3YG5Vrazmq4SmGYQ6kbsygkFysRdRhDsXe5bNS"
+    }
+  }
+}

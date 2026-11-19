@@ -2,17 +2,25 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Wallet, Plus, Trash2, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
-import { 
-  Wallet as WalletType, 
-  addWallet, 
-  getWallets, 
-  deleteWallet, 
+import {
+  Wallet as WalletType,
+  addWallet,
+  getWallets,
+  deleteWallet,
   updateWalletSyncTime,
   saveEvents,
   clearEventsForWallet,
-  getDB
+  getDB,
+  getEventsForWallets,
+  getClassificationOverrides,
+  applyOverridesToEvents,
 } from '@/lib/db';
-import { isValidTezosAddress, getAccountInfo, fetchAllTransactions, buildEvents } from '@/lib/tzkt';
+import {
+  isValidTezosAddress,
+  getAccountInfo,
+  fetchAllTransactions,
+  buildEventsWithPricing,
+} from '@/lib/tzkt';
 import { classifyEvents } from '@/lib/classify-events';
 
 interface WalletManagerProps {
@@ -125,39 +133,40 @@ export default function WalletManager({ onWalletsChange }: WalletManagerProps) {
         }
       }
       
-      // Clear existing events
+      // Clear existing events for this wallet
       await clearEventsForWallet(address);
-      
-      // Fetch all transactions
+
+      // Fetch full history (needed for prior-year cost basis)
       const { xtzOps, tokenOps } = await fetchAllTransactions(address);
-      
-      // Build events
-      const events = buildEvents(address, xtzOps, tokenOps);
-      
-      // Apply smart classification
+      const events = await buildEventsWithPricing(address, xtzOps, tokenOps);
+
       const allWallets = await getWallets();
-      const classifiedEvents = classifyEvents(events, allWallets);
-      
-      // Save to IndexedDB
-      await saveEvents(classifiedEvents);
+      // Persist raw-ish events first so multi-wallet reclassify can see them
+      await saveEvents(events);
       await updateWalletSyncTime(address);
-      
-      // Count classifications for summary
+
+      // Reclassify ALL wallet events together so own-wallet transfers resolve
+      const allAddresses = allWallets.map((w) => w.address);
+      const allEvents = await getEventsForWallets(allAddresses);
+      const overrides = await getClassificationOverrides();
+      const withOverrides = applyOverridesToEvents(allEvents, overrides);
+      const classifiedAll = classifyEvents(withOverrides, allWallets);
+      await saveEvents(classifiedAll);
+
+      const classifiedEvents = classifiedAll.filter((e) => e.walletAddress === address);
       const stats: Record<string, number> = {};
       for (const e of classifiedEvents) {
         const c = e.classification || 'unknown';
         stats[c] = (stats[c] || 0) + 1;
       }
-      
+
       const summaryParts = [];
-      if (stats.baking_reward) summaryParts.push(`${stats.baking_reward} baking rewards`);
-      if (stats.swap) summaryParts.push(`${stats.swap} swaps`);
-      if (stats.likely_gift) summaryParts.push(`${stats.likely_gift} likely gifts`);
-      
-      const summary = summaryParts.length > 0 
-        ? ` (${summaryParts.join(', ')})` 
-        : '';
-      
+      if (stats.baking_reward) summaryParts.push(`${stats.baking_reward} staking`);
+      if (stats.nft_purchase) summaryParts.push(`${stats.nft_purchase} NFT buys`);
+      if (stats.nft_sale) summaryParts.push(`${stats.nft_sale} NFT sales`);
+      if (stats.needs_review) summaryParts.push(`${stats.needs_review} need review`);
+
+      const summary = summaryParts.length > 0 ? ` (${summaryParts.join(', ')})` : '';
       setSuccess(`Synced ${classifiedEvents.length} events${summary}`);
       await loadWallets();
     } catch (err) {

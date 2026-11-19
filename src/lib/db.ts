@@ -38,26 +38,49 @@ export interface TxEvent {
   quoteAud?: number; // XTZ price in AUD at transaction time
   // Mint detection (token was minted/created, not purchased)
   isMint?: boolean; // True if token was received with no from address (minted)
+  entrypoint?: string; // Contract entrypoint when known
+  tokenCreators?: string[]; // FA2 creators metadata when present
   // Smart classification (set during post-processing)
-  classification?: 
-    | 'swap'              // Part of a DEX swap (XTZ ↔ token)
-    | 'self_transfer'     // Transfer between user's own wallets
-    | 'cex_deposit'       // Sent to centralized exchange
-    | 'cex_withdrawal'    // Received from centralized exchange
-    | 'baking_reward'     // Reward from delegated baker
-    | 'nft_purchase'      // XTZ out + NFT in
-    | 'nft_sale'          // NFT out + XTZ in
-    | 'creator_sale'      // Sold a token that was minted/created (ordinary income)
-    | 'likely_gift'       // Sent XTZ with no corresponding receipt (taxable disposal)
-    | 'token_gift_out'    // Sent token/NFT with no corresponding receipt (taxable disposal)
-    | 'received_income'   // Received XTZ from external address (taxable income)
-    | 'token_received'    // Received token/NFT from external address (cost basis = FMV)
-    | 'dex_interaction'   // Other DEX interaction
-    | 'unknown';          // Needs manual review
+  classification?:
+    | 'swap' // Part of a DEX swap (XTZ ↔ token)
+    | 'self_transfer' // Transfer between user's own wallets
+    | 'cex_deposit' // Sent to centralized exchange
+    | 'cex_withdrawal' // Received from centralized exchange
+    | 'baking_reward' // Reward from delegated baker
+    | 'nft_purchase' // XTZ out + NFT in
+    | 'nft_sale' // NFT out + XTZ in
+    | 'creator_sale' // Sold a token that was minted/created (ordinary income)
+    | 'royalty_income' // Royalty share from secondary sale
+    | 'auction_bid_escrow' // XTZ locked in auction / offer escrow
+    | 'offer_escrow' // XTZ locked in offer escrow
+    | 'escrow_refund' // Escrow returned (non-taxable)
+    | 'likely_gift' // Sent XTZ with no corresponding receipt (taxable disposal) — after review
+    | 'token_gift_out' // Sent token/NFT with no corresponding receipt (taxable disposal)
+    | 'received_income' // Received XTZ from external address (taxable income) — after review
+    | 'token_received' // Received token/NFT from external address (cost basis = FMV)
+    | 'dex_interaction' // Other DEX interaction
+    | 'needs_review' // Unexplained transfer — owner must classify
+    | 'ignore' // Owner marked non-taxable / ignore
+    | 'unknown'; // Needs manual review
   classificationNote?: string; // Additional context
   relatedOpHash?: string; // For swaps, link to the other leg
-  counterpartyType?: 'cex' | 'dex' | 'baker' | 'contract' | 'owned_wallet' | 'unknown_wallet';
+  counterpartyType?:
+    | 'cex'
+    | 'dex'
+    | 'nft_marketplace'
+    | 'baker'
+    | 'contract'
+    | 'owned_wallet'
+    | 'unknown_wallet';
   counterpartyName?: string; // e.g., "Kraken", "QuipuSwap"
+  userOverride?: boolean; // True when classification came from review/relabel
+}
+
+export interface ClassificationOverride {
+  eventId: string;
+  classification: NonNullable<TxEvent['classification']>;
+  note?: string;
+  updatedAt: string;
 }
 
 export interface PriceCache {
@@ -119,6 +142,10 @@ interface TaxMasterDB extends DBSchema {
     value: TaxReport;
     indexes: { 'by-created': string };
   };
+  classificationOverrides: {
+    key: string;
+    value: ClassificationOverride;
+  };
 }
 
 let dbInstance: IDBPDatabase<TaxMasterDB> | null = null;
@@ -126,24 +153,27 @@ let dbInstance: IDBPDatabase<TaxMasterDB> | null = null;
 export async function getDB(): Promise<IDBPDatabase<TaxMasterDB>> {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<TaxMasterDB>('taxmaster', 1, {
-    upgrade(db) {
-      // Wallets store
-      const walletStore = db.createObjectStore('wallets', { keyPath: 'address' });
-      walletStore.createIndex('by-added', 'addedAt');
+  dbInstance = await openDB<TaxMasterDB>('taxmaster', 2, {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
+        const walletStore = db.createObjectStore('wallets', { keyPath: 'address' });
+        walletStore.createIndex('by-added', 'addedAt');
 
-      // Events store
-      const eventStore = db.createObjectStore('events', { keyPath: 'id' });
-      eventStore.createIndex('by-wallet', 'walletAddress');
-      eventStore.createIndex('by-timestamp', 'timestamp');
-      eventStore.createIndex('by-wallet-timestamp', ['walletAddress', 'timestamp']);
+        const eventStore = db.createObjectStore('events', { keyPath: 'id' });
+        eventStore.createIndex('by-wallet', 'walletAddress');
+        eventStore.createIndex('by-timestamp', 'timestamp');
+        eventStore.createIndex('by-wallet-timestamp', ['walletAddress', 'timestamp']);
 
-      // Price cache store
-      db.createObjectStore('priceCache', { keyPath: 'id' });
+        db.createObjectStore('priceCache', { keyPath: 'id' });
 
-      // Reports store
-      const reportStore = db.createObjectStore('reports', { keyPath: 'id' });
-      reportStore.createIndex('by-created', 'createdAt');
+        const reportStore = db.createObjectStore('reports', { keyPath: 'id' });
+        reportStore.createIndex('by-created', 'createdAt');
+      }
+      if (oldVersion < 2) {
+        if (!db.objectStoreNames.contains('classificationOverrides')) {
+          db.createObjectStore('classificationOverrides', { keyPath: 'eventId' });
+        }
+      }
     },
   });
 
@@ -218,30 +248,81 @@ export async function getEventsForWallets(addresses: string[]): Promise<TxEvent[
   return allEvents.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 }
 
+export function getTaxYearBounds(
+  year: number,
+  jurisdiction?: 'irs' | 'hmrc' | 'cra' | 'ato'
+): { startIso: string; endIso: string } {
+  if (jurisdiction === 'hmrc') {
+    return {
+      startIso: `${year}-04-06T00:00:00Z`,
+      endIso: `${year + 1}-04-06T00:00:00Z`,
+    };
+  }
+  if (jurisdiction === 'ato') {
+    return {
+      startIso: `${year}-07-01T00:00:00Z`,
+      endIso: `${year + 1}-07-01T00:00:00Z`,
+    };
+  }
+  return {
+    startIso: `${year}-01-01T00:00:00Z`,
+    endIso: `${year + 1}-01-01T00:00:00Z`,
+  };
+}
+
+/**
+ * Events strictly inside the tax year (for display). Prefer getEventsForLotMatching
+ * when calculating gains so prior-year acquisitions seed FIFO/ACB lots.
+ */
 export async function getEventsForYear(
-  addresses: string[], 
+  addresses: string[],
   year: number,
   jurisdiction?: 'irs' | 'hmrc' | 'cra' | 'ato'
 ): Promise<TxEvent[]> {
-  let startIso: string;
-  let endIso: string;
-  
-  // UK tax year runs from April 6, YYYY to April 5, YYYY+1 (e.g., 2024 tax year = 6 April 2024 to 5 April 2025)
-  if (jurisdiction === 'hmrc') {
-    startIso = `${year}-04-06T00:00:00Z`;
-    endIso = `${year + 1}-04-06T00:00:00Z`;
-  } else if (jurisdiction === 'ato') {
-    // Australia tax year runs from July 1, YYYY to June 30, YYYY+1 (e.g., 2024 tax year = 1 July 2024 to 30 June 2025)
-    startIso = `${year}-07-01T00:00:00Z`;
-    endIso = `${year + 1}-07-01T00:00:00Z`;
-  } else {
-    // US (IRS) and Canada (CRA) use calendar year (Jan 1 - Dec 31)
-    startIso = `${year}-01-01T00:00:00Z`;
-    endIso = `${year + 1}-01-01T00:00:00Z`;
-  }
-  
+  const { startIso, endIso } = getTaxYearBounds(year, jurisdiction);
   const allEvents = await getEventsForWallets(addresses);
-  return allEvents.filter(e => e.timestamp >= startIso && e.timestamp < endIso);
+  return allEvents.filter((e) => e.timestamp >= startIso && e.timestamp < endIso);
+}
+
+/** Full history for selected wallets — required for correct cost basis. */
+export async function getEventsForLotMatching(addresses: string[]): Promise<TxEvent[]> {
+  return getEventsForWallets(addresses);
+}
+
+export async function saveClassificationOverride(
+  override: ClassificationOverride
+): Promise<void> {
+  const db = await getDB();
+  await db.put('classificationOverrides', override);
+}
+
+export async function getClassificationOverrides(): Promise<ClassificationOverride[]> {
+  const db = await getDB();
+  return db.getAll('classificationOverrides');
+}
+
+export async function deleteClassificationOverride(eventId: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('classificationOverrides', eventId);
+}
+
+export function applyOverridesToEvents(
+  events: TxEvent[],
+  overrides: ClassificationOverride[]
+): TxEvent[] {
+  if (overrides.length === 0) return events;
+  const map = new Map(overrides.map((o) => [o.eventId, o]));
+  return events.map((e) => {
+    const o = map.get(e.id);
+    if (!o) return e;
+    return {
+      ...e,
+      classification: o.classification,
+      classificationNote: o.note || e.classificationNote,
+      userOverride: true,
+      confidence: 'high' as const,
+    };
+  });
 }
 
 export async function clearEventsForWallet(address: string): Promise<void> {
@@ -353,4 +434,7 @@ export async function clearAllData(): Promise<void> {
   await db.clear('events');
   await db.clear('priceCache');
   await db.clear('reports');
+  if (db.objectStoreNames.contains('classificationOverrides')) {
+    await db.clear('classificationOverrides');
+  }
 }

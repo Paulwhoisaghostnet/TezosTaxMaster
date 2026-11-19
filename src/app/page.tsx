@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { Shield, Github, ExternalLink } from 'lucide-react';
 import WalletManager from '@/components/WalletManager';
+import ReviewQueue from '@/components/ReviewQueue';
 import TaxReportGenerator from '@/components/TaxReportGenerator';
 import ReportHistory from '@/components/ReportHistory';
 import DataManager from '@/components/DataManager';
@@ -100,6 +101,7 @@ export default function Home() {
               key={`wallets-${refreshKey}`}
               onWalletsChange={handleWalletsChange} 
             />
+            <ReviewQueue key={`review-${refreshKey}`} wallets={wallets} />
             <TaxReportGenerator wallets={wallets} />
           </div>
 
