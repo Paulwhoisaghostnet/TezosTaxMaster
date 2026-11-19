@@ -100,7 +100,7 @@ async function fetchPaginatedById<T extends { id?: number }>(
       break;
     }
     lastId = maxId;
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await new Promise((resolve) => setTimeout(resolve, 30));
   }
 
   return results;
@@ -164,9 +164,6 @@ export async function fetchTokenTransfers(
     `${TZKT_BASE}/tokens/transfers?${params}`
   );
 
-  // Resolve missing transactionHash via transactionId (TzKT often returns null hash)
-  await resolveTokenTransferHashes(transfers);
-
   const seen = new Set<string>();
   const merged: TzKTTokenTransfer[] = [];
   for (const tr of transfers) {
@@ -181,11 +178,29 @@ export async function fetchTokenTransfers(
 }
 
 /**
- * Batch-resolve transactionHash for token transfers that only have transactionId.
+ * Resolve token transfer hashes using already-fetched XTZ ops (same TzKT id space),
+ * then optionally batch-fetch any remaining ids from the API.
  */
 export async function resolveTokenTransferHashes(
-  transfers: TzKTTokenTransfer[]
+  transfers: TzKTTokenTransfer[],
+  xtzOps?: TzKTTransaction[],
+  fetchMissing = true
 ): Promise<void> {
+  const idToHash = new Map<number, string>();
+  if (xtzOps) {
+    for (const op of xtzOps) {
+      if (op.id != null && op.hash) idToHash.set(op.id, op.hash);
+    }
+  }
+
+  for (const tr of transfers) {
+    if (!tr.transactionHash && tr.transactionId && idToHash.has(tr.transactionId)) {
+      tr.transactionHash = idToHash.get(tr.transactionId)!;
+    }
+  }
+
+  if (!fetchMissing) return;
+
   const missingIds = Array.from(
     new Set(
       transfers
@@ -196,8 +211,7 @@ export async function resolveTokenTransferHashes(
 
   if (missingIds.length === 0) return;
 
-  const idToHash = new Map<number, string>();
-  const chunkSize = 50;
+  const chunkSize = 100;
   for (let i = 0; i < missingIds.length; i += chunkSize) {
     const chunk = missingIds.slice(i, i + chunkSize);
     const params = new URLSearchParams({
@@ -215,7 +229,7 @@ export async function resolveTokenTransferHashes(
     } catch {
       // Best-effort; joins may fall back to level matching
     }
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    await new Promise((resolve) => setTimeout(resolve, 40));
   }
 
   for (const tr of transfers) {
@@ -226,7 +240,9 @@ export async function resolveTokenTransferHashes(
 }
 
 /**
- * When hash resolution fails, attach hash from XTZ ops at the same level involving the wallet.
+ * Fallback hash attach: only when a level has exactly one wallet-involved XTZ hash.
+ * Do NOT match on timestamp alone — concurrent third-party FA2 transfers share
+ * timestamps with unrelated wallet ops and would get the wrong hash.
  */
 export function attachHashesByLevel(
   address: string,
@@ -255,6 +271,37 @@ export function attachHashesByLevel(
   }
 }
 
+/** Delegations + originations (fee-only for tax; wallet is sender). */
+export async function fetchFeeOnlyOperations(
+  address: string,
+  startIso: string,
+  endIso: string
+): Promise<TzKTTransaction[]> {
+  const types = ['delegations', 'originations'] as const;
+  const all: TzKTTransaction[] = [];
+  for (const type of types) {
+    const params = new URLSearchParams({
+      sender: address,
+      'timestamp.ge': startIso,
+      'timestamp.lt': endIso,
+      status: 'applied',
+      quote: 'usd',
+    });
+    const ops = await fetchPaginatedById<TzKTTransaction>(
+      `${TZKT_BASE}/operations/${type}?${params}`
+    );
+    for (const op of ops) {
+      // Normalize so buildEvents can treat as fee-bearing root ops
+      all.push({
+        ...op,
+        amount: op.amount ?? 0,
+        parameter: { entrypoint: type === 'delegations' ? 'delegation' : 'origination' },
+      });
+    }
+  }
+  return all;
+}
+
 export async function fetchAllTransactions(
   address: string,
   startIso?: string,
@@ -264,14 +311,18 @@ export async function fetchAllTransactions(
   const start = startIso || '2018-01-01T00:00:00Z';
   const end = endIso || new Date(Date.now() + 86400000).toISOString();
 
-  const [xtzOps, tokenOps] = await Promise.all([
+  const [xtzOps, tokenOps, feeOps] = await Promise.all([
     fetchXtzTransactions(address, start, end),
     fetchTokenTransfers(address, start, end),
+    fetchFeeOnlyOperations(address, start, end),
   ]);
 
-  attachHashesByLevel(address, xtzOps, tokenOps);
+  const mergedXtz = [...xtzOps, ...feeOps];
+  // Prefer local id→hash join, then API for remaining ids, then unique-level fallback
+  await resolveTokenTransferHashes(tokenOps, mergedXtz, true);
+  attachHashesByLevel(address, mergedXtz, tokenOps);
 
-  return { xtzOps, tokenOps };
+  return { xtzOps: mergedXtz, tokenOps };
 }
 
 export function buildEvents(

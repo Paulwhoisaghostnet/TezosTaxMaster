@@ -54,6 +54,9 @@ export const NFT_MARKETPLACE_ADDRESSES: Record<string, string> = {
   'KT1GbyoDi7H1sfXmimXpptZJuCdHMh66WS9u': 'fxhash Marketplace v2',
   // Rarible
   'KT18pVpRXKPY2c4U2yFEGSH3ZnhB2kL8kwXS': 'Rarible Exchange',
+  // Tezos Domains
+  'KT191reDVKrLxU9rjTSxg53wRqj6zh8pnHgr': 'Tezos Domains Transactions',
+  'KT1Mqx5meQbhufngJnUAGEGpa4ZRxhPSiCgB': 'Tezos Domains',
 };
 
 export const KNOWN_BAKERS: Record<string, string> = {

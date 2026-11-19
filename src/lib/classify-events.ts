@@ -269,15 +269,32 @@ function classifyEvent(
     }
   }
 
+  // Token in from marketplace with no XTZ in this op — likely auction/offer settle
+  if (
+    event.direction === 'in' &&
+    event.asset !== 'XTZ' &&
+    (addressType.type === 'nft_marketplace' ||
+      isNftMarketplace(event.counterparty).isMarketplace ||
+      relatedEvents.some(
+        (e) =>
+          getAddressType(e.counterparty).type === 'nft_marketplace' ||
+          isNftMarketplace(e.counterparty).isMarketplace
+      ))
+  ) {
+    event.classification = 'nft_purchase';
+    event.classificationNote =
+      'NFT received via marketplace (possible prior bid/offer settle) — cost basis from escrow if linked';
+    event.confidence = 'medium';
+    return event;
+  }
+
   if (event.direction === 'in' && event.asset !== 'XTZ') {
-    if (addressType.type === 'wallet' || !event.counterparty) {
-      event.classification = event.isMint ? 'token_received' : 'needs_review';
-      event.classificationNote = event.isMint
-        ? 'Minted token — basis typically 0 (or mint costs)'
-        : 'Inbound token/NFT — classify as purchase settlement, airdrop, gift, or ignore';
-      event.confidence = event.isMint ? 'high' : 'low';
-      return event;
-    }
+    event.classification = event.isMint ? 'token_received' : 'needs_review';
+    event.classificationNote = event.isMint
+      ? 'Minted token — basis typically 0 (or mint costs)'
+      : 'Inbound token/NFT — classify as purchase settlement, airdrop, gift, or ignore';
+    event.confidence = event.isMint ? 'high' : 'low';
+    return event;
   }
 
   event.classification = 'unknown';
@@ -322,22 +339,42 @@ function classifyEscrow(
     }
   }
 
-  // Bid / offer escrow: XTZ out (often via wXTZ wrap) — token-in of wrapped XTZ is not an NFT buy
+  // Bid / offer escrow: XTZ out (often via wXTZ wrap) — wrapped XTZ is not an NFT buy
   const hasBidEp = [...allEps].some((e) => e === 'bid' || e === 'bid_floor');
   const hasOfferEp = [...allEps].some(
     (e) => e === 'offer' || e === 'offer_token' || e === 'make_offer'
   );
   const hasWrapEp = [...allEps].some((e) => e === 'wrap');
+  const wrapTokenIn = relatedEvents.some(
+    (e) =>
+      e.asset !== 'XTZ' &&
+      e.direction === 'in' &&
+      /^(o)?xtz$/i.test((e.asset.split(':')[0] || '').replace(/\s/g, ''))
+  );
   const nftIn = relatedEvents.some(
     (e) =>
       e.asset !== 'XTZ' &&
       e.direction === 'in' &&
       e.tags.includes('likely_nft') &&
-      !/o?xtz/i.test(e.asset.split(':')[0] || '')
+      !/^(o)?xtz$/i.test((e.asset.split(':')[0] || '').replace(/\s/g, ''))
   );
 
+  // Pure wXTZ wrap (XTZ out + oXTZ in) — escrow / wrap, never NFT purchase
   if (
-    (hasBidEp || (hasWrapEp && hasBidEp) || hasOfferEp) &&
+    (hasWrapEp || wrapTokenIn) &&
+    event.asset === 'XTZ' &&
+    event.direction === 'out' &&
+    event.quantity > 0 &&
+    !nftIn
+  ) {
+    return {
+      classification: hasOfferEp && !hasBidEp ? 'offer_escrow' : 'auction_bid_escrow',
+      note: 'XTZ wrapped / locked for marketplace bid or offer',
+    };
+  }
+
+  if (
+    (hasBidEp || hasOfferEp) &&
     event.asset === 'XTZ' &&
     event.direction === 'out' &&
     event.quantity > 0 &&
@@ -351,15 +388,11 @@ function classifyEscrow(
     };
   }
 
-  // wXTZ wrap/unwrap token legs tied to a bid are not NFT purchases
-  if (
-    (hasBidEp || hasWrapEp) &&
-    event.asset !== 'XTZ' &&
-    /o?xtz/i.test(event.asset.split(':')[0] || '')
-  ) {
+  // wXTZ / oXTZ token legs are never NFT trades
+  if (event.asset !== 'XTZ' && /^(o)?xtz$/i.test((event.asset.split(':')[0] || '').replace(/\s/g, ''))) {
     return {
-      classification: 'auction_bid_escrow',
-      note: 'Wrapped XTZ for auction bid — not an NFT trade',
+      classification: hasOfferEp && !hasBidEp ? 'offer_escrow' : 'auction_bid_escrow',
+      note: 'Wrapped XTZ token transfer — not an NFT trade',
     };
   }
 
@@ -409,33 +442,41 @@ function detectMarketplaceOrSwap(
       e.walletAddress.toLowerCase() === wallet
   );
 
-  const tokenOutWasMinted = tokenOut && tokenInventory.get(tokenOut.asset);
+  const isWrapToken = (asset: string) =>
+    /^(o)?xtz$/i.test((asset.split(':')[0] || '').replace(/\s/g, ''));
+
+  const tokenInReal =
+    tokenIn && !isWrapToken(tokenIn.asset) ? tokenIn : undefined;
+  const tokenOutReal =
+    tokenOut && !isWrapToken(tokenOut.asset) ? tokenOut : undefined;
+
+  const tokenOutWasMinted = tokenOutReal && tokenInventory.get(tokenOutReal.asset);
   const isCreatorSale =
-    tokenOutWasMinted && tokenOutWasMinted.minted && !tokenOutWasMinted.acquired;
+    !!tokenOutWasMinted && tokenOutWasMinted.minted && !tokenOutWasMinted.acquired;
 
   const isNft =
     event.tags.includes('likely_nft') ||
-    relatedEvents.some((e) => e.tags.includes('likely_nft')) ||
+    relatedEvents.some((e) => e.tags.includes('likely_nft') && !isWrapToken(e.asset)) ||
     relatedEvents.some(
       (e) =>
         getAddressType(e.counterparty).type === 'nft_marketplace' ||
         isNftMarketplace(e.counterparty).isMarketplace
     );
 
-  // NFT purchase: XTZ out + token in (marketplace / likely NFT)
-  if (xtzOut && tokenIn && isNft) {
-    if (event.id === xtzOut.id || event.id === tokenIn.id) {
+  // NFT purchase: XTZ out + real token in (not wrapped XTZ)
+  if (xtzOut && tokenInReal && isNft) {
+    if (event.id === xtzOut.id || event.id === tokenInReal.id) {
       return {
         classification: 'nft_purchase',
-        note: `NFT/token purchase (${extractTokenSymbol(tokenIn.asset)})`,
+        note: `NFT/token purchase (${extractTokenSymbol(tokenInReal.asset)})`,
       };
     }
   }
 
-  // NFT / creator sale: token out + XTZ in
-  if (tokenOut && xtzIn) {
+  // NFT / creator sale: real token out + XTZ in
+  if (tokenOutReal && xtzIn) {
     if (isCreatorSale) {
-      if (event.id === tokenOut.id || event.id === xtzIn.id) {
+      if (event.id === tokenOutReal.id || event.id === xtzIn.id) {
         return {
           classification: 'creator_sale',
           note: 'Sale of self-created token - ordinary income (Schedule C for US)',
@@ -443,7 +484,7 @@ function detectMarketplaceOrSwap(
       }
     }
     if (isNft) {
-      if (event.id === tokenOut.id || event.id === xtzIn.id) {
+      if (event.id === tokenOutReal.id || event.id === xtzIn.id) {
         return {
           classification: 'nft_sale',
           note: 'NFT/token sale - capital gain/loss',
@@ -452,29 +493,29 @@ function detectMarketplaceOrSwap(
     }
   }
 
-  // Classic DEX swap XTZ ↔ token
-  if (xtzOut && tokenIn) {
-    if (event.id === xtzOut.id || event.id === tokenIn.id) {
+  // Classic DEX swap XTZ ↔ token (exclude pure wXTZ wrap)
+  if (xtzOut && tokenInReal) {
+    if (event.id === xtzOut.id || event.id === tokenInReal.id) {
       return {
         classification: 'swap',
-        note: `Swapped XTZ for ${extractTokenSymbol(tokenIn.asset)}`,
+        note: `Swapped XTZ for ${extractTokenSymbol(tokenInReal.asset)}`,
       };
     }
   }
-  if (tokenOut && xtzIn) {
-    if (event.id === tokenOut.id || event.id === xtzIn.id) {
+  if (tokenOutReal && xtzIn) {
+    if (event.id === tokenOutReal.id || event.id === xtzIn.id) {
       return {
         classification: 'swap',
-        note: `Swapped ${extractTokenSymbol(tokenOut.asset)} for XTZ`,
+        note: `Swapped ${extractTokenSymbol(tokenOutReal.asset)} for XTZ`,
       };
     }
   }
 
-  if (tokenOut && tokenIn && !xtzOut && !xtzIn) {
-    if (event.id === tokenOut.id || event.id === tokenIn.id) {
+  if (tokenOutReal && tokenInReal && !xtzOut && !xtzIn) {
+    if (event.id === tokenOutReal.id || event.id === tokenInReal.id) {
       return {
         classification: 'swap',
-        note: `Swapped ${extractTokenSymbol(tokenOut.asset)} for ${extractTokenSymbol(tokenIn.asset)}`,
+        note: `Swapped ${extractTokenSymbol(tokenOutReal.asset)} for ${extractTokenSymbol(tokenInReal.asset)}`,
       };
     }
   }
