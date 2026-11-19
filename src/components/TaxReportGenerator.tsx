@@ -2,26 +2,30 @@
 
 import { useState } from 'react';
 import { FileText, Download, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-import { 
-  Wallet, 
-  TaxReport, 
-  getEventsForYear, 
-  saveReport 
+import {
+  Wallet,
+  TaxReport,
+  getEventsForLotMatching,
+  getTaxYearBounds,
+  getClassificationOverrides,
+  applyOverridesToEvents,
+  saveReport,
 } from '@/lib/db';
-import { 
-  calculateIRS, 
+import {
+  calculateIRS,
   calculateHMRC,
   calculateCRA,
   calculateATO,
-  disposalsToCSV, 
+  disposalsToCSV,
   ledgerToCSV,
   incomeEventsToCSV,
   IRSDisposal,
   HMRCDisposal,
   CRADisposal,
   ATODisposal,
-  TaxCalculationResult
+  TaxCalculationResult,
 } from '@/lib/tax-calculations';
+import { classifyEvents, getReviewQueue } from '@/lib/classify-events';
 
 interface TaxReportGeneratorProps {
   wallets: Wallet[];
@@ -76,25 +80,41 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
     setProgress({ percent: 0, message: 'Loading events...' });
 
     try {
-      // Get events for the selected year (pass jurisdiction to handle UK tax year)
-      const events = await getEventsForYear(selectedWallets, year, jurisdiction);
-      
-      if (events.length === 0) {
+      // Full history for lot matching; year filter applied inside calculators
+      const rawEvents = await getEventsForLotMatching(selectedWallets);
+      const overrides = await getClassificationOverrides();
+      const withOverrides = applyOverridesToEvents(rawEvents, overrides);
+      // Re-classify across all selected wallets so inter-wallet transfers resolve
+      const selectedWalletObjs = wallets.filter((w) => selectedWallets.includes(w.address));
+      const events = classifyEvents(withOverrides, selectedWalletObjs);
+      const yearBounds = getTaxYearBounds(year, jurisdiction);
+      const yearEvents = events.filter(
+        (e) => e.timestamp >= yearBounds.startIso && e.timestamp < yearBounds.endIso
+      );
+
+      if (yearEvents.length === 0) {
         setError(`No transactions found for ${year}`);
         setIsGenerating(false);
         return;
       }
 
-      setProgress({ percent: 10, message: `Found ${events.length} events, calculating...` });
+      const reviewCount = getReviewQueue(yearEvents).length;
+      setProgress({
+        percent: 10,
+        message: `Found ${yearEvents.length} events in ${year} (${events.length} total for basis)${reviewCount ? `, ${reviewCount} need review` : ''}...`,
+      });
 
-      // Calculate taxes (prices are already stored with events from TzKT)
-      const result = jurisdiction === 'irs'
-        ? calculateIRS(events, (pct, msg) => setProgress({ percent: 10 + pct * 0.8, message: msg }))
-        : jurisdiction === 'hmrc'
-          ? calculateHMRC(events, (pct, msg) => setProgress({ percent: 10 + pct * 0.8, message: msg }))
-          : jurisdiction === 'cra'
-            ? calculateCRA(events, (pct, msg) => setProgress({ percent: 10 + pct * 0.8, message: msg }))
-            : calculateATO(events, (pct, msg) => setProgress({ percent: 10 + pct * 0.8, message: msg }));
+      const onProg = (pct: number, msg: string) =>
+        setProgress({ percent: 10 + pct * 0.8, message: msg });
+
+      const result =
+        jurisdiction === 'irs'
+          ? calculateIRS(events, onProg, yearBounds)
+          : jurisdiction === 'hmrc'
+            ? calculateHMRC(events, onProg, yearBounds)
+            : jurisdiction === 'cra'
+              ? calculateCRA(events, onProg, yearBounds)
+              : calculateATO(events, onProg, yearBounds);
 
       setProgress({ percent: 95, message: 'Saving report...' });
 
@@ -482,9 +502,8 @@ export default function TaxReportGenerator({ wallets }: TaxReportGeneratorProps)
                   </div>
                 </div>
                 
-                {/* Income Note */}
                 <div className="p-2 bg-purple-50 dark:bg-purple-950 rounded text-xs text-purple-700 dark:text-purple-300">
-                  <strong>Note:</strong> XTZ received from addresses not in your wallet list (and not from CEXs or bakers) is treated as taxable income at FMV when received. To reclassify, add the sending wallet to your app.
+                  Unexplained transfers stay in Needs Review until you relabel them (income, gift, own-wallet, or ignore). Add every wallet you control so inter-wallet moves stay non-taxable.
                 </div>
               </div>
             )}
